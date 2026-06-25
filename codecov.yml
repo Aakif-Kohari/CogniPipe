@@ -1,0 +1,21 @@
+coverage:
+  status:
+    project:
+      default:
+        target: 80%
+        threshold: 2%
+    patch:
+      default:
+        target: 80%
+
+ignore:
+  - 'examples/**'
+  - 'node-template/**'
+  - '**/__tests__/**'
+  - '**/jest.config.ts'
+  - 'apps/docs/**'
+
+comment:
+  layout: 'reach,diff,files'
+  behavior: default
+  require_changes: false
