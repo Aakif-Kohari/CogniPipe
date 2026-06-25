@@ -1,0 +1,46 @@
+name: "🔌 New Node Request"
+description: "Request a new integration/node package"
+labels: ["new node", "needs-triage"]
+body:
+  - type: input
+    id: service
+    attributes:
+      label: "Service / API name"
+      placeholder: "e.g. Twilio, SendGrid, Notion"
+    validations:
+      required: true
+
+  - type: input
+    id: docs-url
+    attributes:
+      label: "API documentation URL"
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: "What workflow would this enable?"
+      placeholder: "I want to send SMS alerts when an OpenAI step produces output containing a keyword..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: "Proposed node config (optional)"
+      placeholder: |
+        type: '@cognipipe/node-twilio'
+        config:
+          accountSid: env.TWILIO_SID
+          authToken: env.TWILIO_TOKEN
+          to: '+1234567890'
+          body: '{{ steps.previous.output.message }}'
+      render: yaml
+
+  - type: checkboxes
+    id: willing
+    attributes:
+      label: "Would you like to build this node?"
+      options:
+        - label: "Yes — assign this to me when approved"

@@ -1,0 +1,45 @@
+name: "✨ Feature Request"
+description: "Propose a new capability for CogniPipe"
+labels: ["feature", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: "What problem does this solve?"
+      placeholder: "As a developer, I often need to... but currently..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: "Proposed solution"
+      placeholder: "I'd like CogniPipe to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives you've considered"
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: "Which area does this affect?"
+      options:
+        - "Core engine"
+        - "CLI"
+        - "SDK (node development)"
+        - "Documentation"
+        - "New built-in node"
+        - "Other"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: willing
+    attributes:
+      label: "Are you willing to implement this?"
+      options:
+        - label: "Yes, I'd like to work on this if approved"

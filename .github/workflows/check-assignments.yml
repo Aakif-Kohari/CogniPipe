@@ -1,0 +1,210 @@
+# .github/workflows/check-assignments.yml
+name: "⏰ Enforce 48-Hour Assignment Rule"
+
+on:
+  schedule:
+    # Runs every hour — fine-grained enough for the 36h/48h windows
+    - cron: '0 * * * *'
+  workflow_dispatch:
+    # Allow maintainer to trigger manually for testing
+
+permissions:
+  issues: write
+
+jobs:
+  enforce-deadline:
+    name: Check all assigned issues for deadline compliance
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run deadline enforcement logic
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo  = context.repo.repo;
+            const now   = new Date();
+
+            // ── Helper: hours elapsed since a date ──────────────────────────
+            function hoursElapsed(since) {
+              return (now - new Date(since)) / (1000 * 60 * 60);
+            }
+
+            // ── Step 1: Fetch all open issues labelled 'assigned' ───────────
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              state:    'open',
+              labels:   'assigned',
+              per_page: 100,
+            });
+
+            console.log(`🔍 Found ${issues.length} issue(s) with 'assigned' label.`);
+
+            for (const issue of issues) {
+              // Skip pull requests (GitHub API returns PRs in issues endpoint)
+              if (issue.pull_request) continue;
+
+              const issueNum  = issue.number;
+              const assignees = issue.assignees.map(a => a.login);
+
+              console.log(`\n── Issue #${issueNum}: assignees = [${assignees.join(', ')}]`);
+
+              // If label is orphaned (no actual assignee), clean up
+              if (assignees.length === 0) {
+                console.log(`  ⚠️  No assignees — removing stale 'assigned' label`);
+                try {
+                  await github.rest.issues.removeLabel({
+                    owner, repo, issue_number: issueNum, name: 'assigned',
+                  });
+                } catch (e) { /* label may already be gone */ }
+                continue;
+              }
+
+              // ── Step 2: Read all comments to find our machine-readable data ─
+              const { data: comments } = await github.rest.issues.listComments({
+                owner,
+                repo,
+                issue_number: issueNum,
+                per_page: 100,
+              });
+
+              let assignedAt        = null;
+              let assignee          = null;
+              let warningPosted     = false;
+              let extensionGranted  = false;
+
+              for (const c of comments) {
+                const body = c.body || '';
+
+                // Parse our hidden timestamp marker
+                const assignMatch = body.match(
+                  /<!-- COGNIPIPE_ASSIGNED_AT:(.+?)\|ASSIGNEE:(.+?) -->/
+                );
+                if (assignMatch) {
+                  assignedAt = assignMatch[1].trim();
+                  assignee   = assignMatch[2].trim();
+                }
+
+                // Check if 36h warning was already posted
+                if (body.includes('<!-- COGNIPIPE_36H_WARNING -->')) {
+                  warningPosted = true;
+                }
+
+                // Check if the assignee requested an extension
+                // We look for extension keywords from the assignee's own comments
+                if (
+                  assignees.includes(c.user.login) &&
+                  c.user.type !== 'Bot'
+                ) {
+                  const bodyLower = body.toLowerCase();
+                  const extensionKeywords = [
+                    'extension', 'extend', 'more time', 'need more',
+                    'extra time', 'few more', 'bit more', 'still working',
+                    'still on it', 'please extend',
+                  ];
+                  if (extensionKeywords.some(kw => bodyLower.includes(kw))) {
+                    extensionGranted = true;
+                    console.log(`  ✅ Extension requested by @${c.user.login}`);
+                  }
+                }
+              }
+
+              // If we couldn't find our marker, skip (manual assignment, no clock)
+              if (!assignedAt || !assignee) {
+                console.log(`  ⚠️  No COGNIPIPE_ASSIGNED_AT marker found — skipping.`);
+                continue;
+              }
+
+              const elapsed = hoursElapsed(assignedAt);
+              console.log(`  ⏱  ${elapsed.toFixed(2)}h elapsed since assignment of @${assignee}`);
+
+              // ── Step 3: Check if a PR has been linked ──────────────────────
+              const { data: timeline } = await github.rest.issues.listEventsForTimeline({
+                owner,
+                repo,
+                issue_number: issueNum,
+                per_page: 100,
+              });
+
+              const hasPRLinked = timeline.some(
+                ev =>
+                  ev.event === 'cross-referenced' &&
+                  ev.source?.issue?.pull_request != null
+              );
+
+              if (hasPRLinked) {
+                console.log(`  ✅ PR linked — no action needed.`);
+                continue;
+              }
+
+              if (extensionGranted) {
+                console.log(`  ✅ Extension active — resetting clock implicitly.`);
+                // NOTE: In a future enhancement, you could parse a new deadline
+                // from a maintainer's reply. For now we simply skip enforcement.
+                continue;
+              }
+
+              // ── Step 4: Apply enforcement actions ─────────────────────────
+
+              // 48h deadline: UNASSIGN
+              if (elapsed >= 48) {
+                console.log(`  🔴 48h exceeded — unassigning @${assignee}`);
+
+                await github.rest.issues.removeAssignees({
+                  owner, repo, issue_number: issueNum, assignees: [assignee],
+                });
+
+                try {
+                  await github.rest.issues.removeLabel({
+                    owner, repo, issue_number: issueNum, name: 'assigned',
+                  });
+                } catch (e) { /* label may already be gone */ }
+
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: issueNum,
+                  body: `<!-- COGNIPIPE_UNASSIGNED -->
+
+                  ⏰ **48-hour deadline reached.**
+
+                  @${assignee} has been automatically **unassigned** from this issue. No commit or Draft PR was linked within the 48-hour window, and no extension was requested.
+
+                  🔓 This issue is now **open for anyone to claim!**
+                  Comment \`.take\` or \`!assign\` below to get started.
+
+                  No hard feelings — life happens! Check out other [open issues](../../issues?q=is%3Aissue+is%3Aopen+no%3Aassignee) and jump back in anytime. 💙
+
+                  > *Automated action by CogniPipeBot.*`,
+                });
+
+              // 36h mark: WARNING (only post once)
+              } else if (elapsed >= 36 && !warningPosted) {
+                console.log(`  🟡 36h reached — posting warning to @${assignee}`);
+
+                const remainingHours = Math.ceil(48 - elapsed);
+
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: issueNum,
+                  body: `<!-- COGNIPIPE_36H_WARNING -->
+
+                  ⚠️ **Heads-up, @${assignee}!**
+
+                  You have approximately **${remainingHours} hour(s) remaining** before this issue is automatically unassigned.
+
+                  To keep your assignment, do **one** of the following:
+                  1. 📬 Open a **Draft PR** referencing \`Closes #${issueNum}\`
+                  2. 💾 Push a **commit** mentioning \`#${issueNum}\` in the message
+                  3. 💬 Reply here with **"I need an extension"** — we're happy to accommodate!
+
+                  No response = auto-unassignment at the 48h mark. 🤖
+
+                  > *Automated reminder by CogniPipeBot.*`,
+                });
+
+              } else {
+                console.log(`  🟢 ${elapsed.toFixed(1)}h elapsed — within limits.`);
+              }
+            }
+
+            console.log('\n✅ Deadline enforcement complete.');

@@ -1,0 +1,25 @@
+{
+  "name": "@cognipipe/types",
+  "version": "0.0.1",
+  "description": "Shared TypeScript types for CogniPipe",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "engines": { "node": ">=18.0.0" },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Aakif-Kohari/cognipipe.git",
+    "directory": "packages/types"
+  }
+}

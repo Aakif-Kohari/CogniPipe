@@ -1,0 +1,175 @@
+# .github/workflows/assign-issue.yml
+name: "🤖 Issue Auto-Assignment"
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+
+jobs:
+  auto-assign:
+    name: Detect trigger and assign contributor
+    runs-on: ubuntu-latest
+    # Only run on issue comments, never on PR comments
+    if: >
+      github.event.issue.pull_request == null &&
+      github.event.issue.state == 'open'
+
+    steps:
+      - name: Detect assignment trigger phrase
+        id: detect
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = context.payload.comment.body
+              .toLowerCase()
+              .trim();
+            const commenter = context.payload.comment.user.login;
+
+            // Skip bot comments entirely
+            const botSuffixes = ['-bot', '[bot]', 'cognipipe-bot'];
+            const isBot = botSuffixes.some(s => commenter.toLowerCase().includes(s))
+                       || context.payload.comment.user.type === 'Bot';
+            if (isBot) {
+              console.log('Bot comment detected — skipping.');
+              core.setOutput('triggered', 'false');
+              return;
+            }
+
+            // All recognized trigger patterns
+            const triggers = [
+              /^\.take\s*$/,
+              /^!assign\s*$/,
+              /^\/assign\s*$/,
+              /i'?d\s+like\s+to\s+(work\s+on|tackle|take|solve|fix|pick\s+up)\s+this/,
+              /i\s+want\s+to\s+(work\s+on|tackle|take|solve|fix)\s+this/,
+              /can\s+i\s+(work\s+on|tackle|take|have|solve)\s+this/,
+              /i'?ll\s+(take|tackle|work\s+on|pick\s+up|fix)\s+(this|it)/,
+              /assign\s+(this|it)\s+to\s+me/,
+              /me\s+please\s*$/,
+              /i'?m\s+interested\s+in\s+(working\s+on|tackling|solving)\s+this/,
+              /happy\s+to\s+(work\s+on|fix|solve|tackle)\s+this/,
+              /i\s+can\s+(work\s+on|fix|solve|tackle)\s+this/,
+            ];
+
+            const isTriggered = triggers.some(pattern => pattern.test(comment));
+            console.log(`Commenter: @${commenter}`);
+            console.log(`Comment: "${comment}"`);
+            console.log(`Triggered: ${isTriggered}`);
+
+            core.setOutput('triggered', isTriggered.toString());
+            core.setOutput('commenter', commenter);
+
+      - name: Check current assignment status
+        id: check-status
+        if: steps.detect.outputs.triggered == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue    = context.payload.issue;
+            const commenter = '${{ steps.detect.outputs.commenter }}';
+            const assignees = issue.assignees.map(a => a.login);
+
+            if (assignees.length === 0) {
+              core.setOutput('status', 'available');
+            } else if (assignees.includes(commenter)) {
+              core.setOutput('status', 'self');
+            } else {
+              core.setOutput('status', 'taken');
+              core.setOutput('current-assignee', assignees[0]);
+            }
+
+      # ─── Case: Issue is free — assign and start the clock ─────────────────
+      - name: Assign contributor + start 48h clock
+        if: >
+          steps.detect.outputs.triggered == 'true' &&
+          steps.check-status.outputs.status == 'available'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const commenter  = '${{ steps.detect.outputs.commenter }}';
+            const issueNum   = context.issue.number;
+            const assignedAt = new Date().toISOString();
+
+            // 1. Assign the user
+            await github.rest.issues.addAssignees({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: issueNum,
+              assignees: [commenter],
+            });
+
+            // 2. Add the 'assigned' label (create it first if missing)
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                issue_number: issueNum,
+                labels: ['assigned'],
+              });
+            } catch (e) {
+              console.log('Label add failed (may not exist yet):', e.message);
+            }
+
+            // 3. Post the 48h rule comment
+            //    The hidden HTML comment is the machine-readable timestamp.
+            //    DO NOT edit or remove it — the cron job relies on it.
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: issueNum,
+              body: `<!-- COGNIPIPE_ASSIGNED_AT:${assignedAt}|ASSIGNEE:${commenter} -->
+
+              👋 Hey @${commenter} — you've been assigned!
+
+              ⏱️ **The 48-Hour Rule**
+              Please link a **commit** or open a **Draft PR** within **48 hours**, or you will be automatically unassigned so another contributor can take over.
+
+              ✅ **What counts as activity:**
+              - Open a Draft PR and reference this issue (\`Closes #${issueNum}\`)
+              - Push a commit with \`#${issueNum}\` in the message
+              - Reply here to **request a time extension** (we're happy to grant one!)
+
+              Good luck, and don't hesitate to ask questions below! 🚀
+
+              > *This message was sent automatically by CogniPipeBot.*`
+            });
+
+      # ─── Case: Already assigned to themselves ──────────────────────────────
+      - name: Comment — already yours
+        if: >
+          steps.detect.outputs.triggered == 'true' &&
+          steps.check-status.outputs.status == 'self'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const commenter = '${{ steps.detect.outputs.commenter }}';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: context.issue.number,
+              body: `Hey @${commenter} — this issue is already assigned to you! 🔧 Keep at it, you're doing great.`,
+            });
+
+      # ─── Case: Already taken by someone else ───────────────────────────────
+      - name: Comment — already taken
+        if: >
+          steps.detect.outputs.triggered == 'true' &&
+          steps.check-status.outputs.status == 'taken'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const commenter       = '${{ steps.detect.outputs.commenter }}';
+            const currentAssignee = '${{ steps.check-status.outputs.current-assignee }}';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: context.issue.number,
+              body: `Hey @${commenter}! 👋
+
+              This issue is currently being worked on by @${currentAssignee}. Under our **48-hour rule**, it may become available again if they don't link a commit or Draft PR in time.
+
+              In the meantime, check out other [open, unassigned issues](../../issues?q=is%3Aissue+is%3Aopen+no%3Aassignee) — there's plenty to work on! 💙`,
+            });

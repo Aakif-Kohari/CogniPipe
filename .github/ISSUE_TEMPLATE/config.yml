@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Ask a Question
+    url: https://github.com/Aakif-Kohari/cognipipe/discussions/categories/help-wanted
+    about: Use GitHub Discussions for questions — not issues
+  - name: 💡 Share an Idea
+    url: https://github.com/Aakif-Kohari/cognipipe/discussions/categories/ideas
+    about: Discuss ideas before opening a feature request

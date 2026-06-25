@@ -1,0 +1,16 @@
+# CogniPipe Code Owners
+# These owners are automatically requested for review on PRs
+
+# Global fallback — Aakif reviews everything
+*                               @Aakif-Kohari
+
+# Core engine and SDK — always needs maintainer review
+/packages/core/                 @Aakif-Kohari
+/packages/sdk/                  @Aakif-Kohari
+/packages/types/                @Aakif-Kohari
+
+# GitHub Actions — security-sensitive, always review
+/.github/workflows/             @Aakif-Kohari
+
+# Community nodes — lighter review, but still check
+/nodes/                         @Aakif-Kohari
