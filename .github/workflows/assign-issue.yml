@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: Detect assignment trigger phrase
         id: detect
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const comment = context.payload.comment.body
@@ -65,7 +65,7 @@ jobs:
       - name: Check current assignment status
         id: check-status
         if: steps.detect.outputs.triggered == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const issue    = context.payload.issue;
@@ -86,7 +86,7 @@ jobs:
         if: >
           steps.detect.outputs.triggered == 'true' &&
           steps.check-status.outputs.status == 'available'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const commenter  = '${{ steps.detect.outputs.commenter }}';
@@ -142,7 +142,7 @@ jobs:
         if: >
           steps.detect.outputs.triggered == 'true' &&
           steps.check-status.outputs.status == 'self'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const commenter = '${{ steps.detect.outputs.commenter }}';
@@ -158,7 +158,7 @@ jobs:
         if: >
           steps.detect.outputs.triggered == 'true' &&
           steps.check-status.outputs.status == 'taken'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const commenter       = '${{ steps.detect.outputs.commenter }}';
