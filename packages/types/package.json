@@ -15,7 +15,9 @@
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist *.tsbuildinfo"
   },
-  "engines": { "node": ">=18.0.0" },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",

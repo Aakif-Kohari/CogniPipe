@@ -1,63 +1,63 @@
-- name: "good first issue"
-  color: "7057ff"
-  description: "Great for newcomers — well-defined scope"
+- name: 'good first issue'
+  color: '7057ff'
+  description: 'Great for newcomers — well-defined scope'
 
-- name: "intermediate"
-  color: "e4e669"
-  description: "Requires reading the codebase first"
+- name: 'intermediate'
+  color: 'e4e669'
+  description: 'Requires reading the codebase first'
 
-- name: "hard"
-  color: "d93f0b"
-  description: "Architectural challenge — experienced contributors"
+- name: 'hard'
+  color: 'd93f0b'
+  description: 'Architectural challenge — experienced contributors'
 
-- name: "assigned"
-  color: "0075ca"
-  description: "Bot-managed — do not touch manually"
+- name: 'assigned'
+  color: '0075ca'
+  description: 'Bot-managed — do not touch manually'
 
-- name: "bug"
-  color: "ee0701"
+- name: 'bug'
+  color: 'ee0701'
   description: "Something isn't working"
 
-- name: "feature"
-  color: "84b6eb"
-  description: "New capability or improvement"
+- name: 'feature'
+  color: '84b6eb'
+  description: 'New capability or improvement'
 
-- name: "documentation"
-  color: "cfd3d7"
-  description: "Docs, comments, examples"
+- name: 'documentation'
+  color: 'cfd3d7'
+  description: 'Docs, comments, examples'
 
-- name: "new node"
-  color: "bfd4f2"
-  description: "Community integration node contribution"
+- name: 'new node'
+  color: 'bfd4f2'
+  description: 'Community integration node contribution'
 
-- name: "core"
-  color: "e11d48"
-  description: "Touches core engine — review carefully"
+- name: 'core'
+  color: 'e11d48'
+  description: 'Touches core engine — review carefully'
 
-- name: "needs-triage"
-  color: "ededed"
-  description: "Maintainer needs to review and label"
+- name: 'needs-triage'
+  color: 'ededed'
+  description: 'Maintainer needs to review and label'
 
-- name: "blocked"
-  color: "b60205"
-  description: "Blocked by another issue"
+- name: 'blocked'
+  color: 'b60205'
+  description: 'Blocked by another issue'
 
-- name: "duplicate"
-  color: "cfd3d7"
-  description: "This issue already exists"
+- name: 'duplicate'
+  color: 'cfd3d7'
+  description: 'This issue already exists'
 
-- name: "wontfix"
-  color: "ffffff"
-  description: "Out of scope for this project"
+- name: 'wontfix'
+  color: 'ffffff'
+  description: 'Out of scope for this project'
 
-- name: "help wanted"
-  color: "128a0c"
-  description: "Maintainer welcomes community help"
+- name: 'help wanted'
+  color: '128a0c'
+  description: 'Maintainer welcomes community help'
 
-- name: "dependencies"
-  color: "0366d6"
-  description: "Dependabot PRs"
+- name: 'dependencies'
+  color: '0366d6'
+  description: 'Dependabot PRs'
 
-- name: "github-actions"
-  color: "000000"
-  description: "CI/CD workflow changes"
+- name: 'github-actions'
+  color: '000000'
+  description: 'CI/CD workflow changes'
