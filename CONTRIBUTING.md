@@ -5,12 +5,13 @@ Thank you for investing your time! All contributions are valued.
 ---
 
 ## Table of Contents
+
 1. [Before You Start](#before-you-start)
 2. [Setting Up the Repo](#setting-up-the-repo)
 3. [Project Structure](#project-structure)
 4. [The 48-Hour Assignment Rule](#the-48-hour-assignment-rule)
 5. [Making a Contribution](#making-a-contribution)
-6. [Building a New Node](#building-a-new-node)    ← most common contribution
+6. [Building a New Node](#building-a-new-node) ← most common contribution
 7. [Testing Requirements](#testing-requirements)
 8. [Commit & Branch Conventions](#commit--branch-conventions)
 9. [PR Process](#pr-process)
@@ -28,13 +29,13 @@ Thank you for investing your time! All contributions are valued.
 
 ## Setting Up the Repo
 
-**Prerequisites:** Node.js >= 18, pnpm >= 9, git
+**Prerequisites:** Node.js >= 22, pnpm >= 9, git
 
 ```bash
 # 1. Fork the repository on GitHub
 
 # 2. Clone your fork
-git clone https://github.com/YOUR_USERNAME/cognipipe.git
+git clone https://github.com/YOUR_USERNAME/CogniPipe.git
 cd cognipipe
 
 # 3. Install all dependencies
@@ -54,6 +55,7 @@ pnpm type-check
 ## The 48-Hour Assignment Rule
 
 When you claim an issue, you have **48 hours** to link a Draft PR or commit.
+
 - Request an extension by replying on the issue - always granted for genuine effort.
 - No response - automatic unassignment so others can contribute.
 
@@ -76,6 +78,7 @@ nodes/node-myservice/
 ```
 
 **Non-negotiable requirements for node PRs:**
+
 - [ ] Extends `BaseNode` from `@cognipipe/sdk`
 - [ ] Uses the `@CogniNode()` decorator with unique `type` string
 - [ ] Config validated with Zod (use `NodeConfig.define()`)
@@ -87,12 +90,12 @@ nodes/node-myservice/
 
 ## Testing Requirements
 
-| Scope | Tool | Min Coverage |
-|-------|------|-------------|
-| `packages/core` | Jest | 90% |
-| `packages/sdk` | Jest | 90% |
-| `nodes/*` | Jest | 80% |
-| `apps/cli` | Jest | 70% |
+| Scope           | Tool | Min Coverage |
+| --------------- | ---- | ------------ |
+| `packages/core` | Jest | 90%          |
+| `packages/sdk`  | Jest | 90%          |
+| `nodes/*`       | Jest | 80%          |
+| `apps/cli`      | Jest | 70%          |
 
 - **Run tests:** `pnpm test`
 - **Run specific package:** `pnpm --filter @cognipipe/core test`
@@ -105,6 +108,7 @@ No PR will be merged if any test fails or coverage drops below the threshold.
 ## Commit & Branch Conventions
 
 **Branch naming:**
+
 ```
 feat/node-anthropic
 fix/executor-parallel-deadlock
@@ -113,6 +117,7 @@ chore/update-eslint-config
 ```
 
 **Commit messages (Conventional Commits):**
+
 ```
 feat(node-openai): add embedding node with vector output
 fix(core): resolve context interpolation for nested paths
@@ -131,3 +136,46 @@ chore(deps): update zod to 3.23.8
 5. A maintainer will review within 72 hours on weekdays
 
 **Merging is strictly manual.** The maintainer merges - never self-merge.
+
+---
+
+## Making a Contribution
+
+The most common contribution is a **new node package**. See [Building a New Node](#building-a-new-node) above.
+
+For documentation, bug fixes, or core changes:
+
+1. Fork the repo
+2. Create a branch: `git checkout -b fix/your-fix-name`
+3. Make changes with tests
+4. Run `pnpm test && pnpm lint && pnpm type-check` — all must pass
+5. Run `pnpm changeset` to document your change
+6. Open a PR using the template
+
+---
+
+## Project Structure
+
+```
+cognipipe/
+├── apps/cli/          # The `cognipipe` CLI tool
+├── apps/docs/         # Docusaurus documentation site
+├── packages/core/     # The workflow execution engine (maintainer-owned)
+├── packages/sdk/      # BaseNode class — what every node extends
+├── packages/types/    # Shared TypeScript interfaces
+├── packages/testing/  # Test utilities for node authors
+├── nodes/             # Community-contributed node packages ← contribute here
+├── node-template/     # Copy this to start a new node
+└── examples/          # Runnable example workflows
+```
+
+---
+
+## Code Style
+
+- **TypeScript strict mode** — no `any`, no `!` non-null assertions without comment
+- **Named exports only** — no default exports except in `apps/`
+- **Comment intentions, not mechanics** — `// Validates that steps run in dependency order` not `// loops through steps`
+- **Error messages must be actionable** — `throw new Error('Step "fetch" not found. Did you define it before referencing it in "dependsOn"?')`
+- **Environment variables via config** — never hardcode API keys; always read from `process.env`
+- Run `pnpm format` to auto-fix formatting before committing
