@@ -1,10 +1,10 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": ["**/.env.*local"],
-  "pipeline": {
+  "ui": "tui",
+  "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**", ".tsbuildinfo"]
     },
     "test": {
       "dependsOn": ["^build"],
@@ -17,6 +17,9 @@
     "type-check": {
       "dependsOn": ["^build"],
       "outputs": []
+    },
+    "clean": {
+      "cache": false
     },
     "dev": {
       "cache": false,
