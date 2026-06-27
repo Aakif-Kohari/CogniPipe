@@ -85,7 +85,7 @@ export interface StepConfig {
   /**
    * When `true`, the workflow continues even if this step throws or returns an error.
    * The failed step's result is still recorded in the {@link ExecutionContext}.
-   * Defaults to `false`.
+   * When omitted, the engine applies its own default (expected: `false`).
    */
   continueOnError?: boolean;
   /**
@@ -108,13 +108,13 @@ export interface RetryConfig {
   maxRetries: number;
   /**
    * Delay in milliseconds before the first retry.
-   * Defaults to `0` (immediate retry) when omitted.
+   * When omitted, the engine applies its own default (expected: `0` for immediate retry).
    */
   initialDelayMs?: number;
   /**
    * Multiplier applied to `initialDelayMs` on each successive retry.
    * A value of `2` produces delays of 500 ms, 1 000 ms, 2 000 ms, and so on.
-   * Defaults to `1` (constant delay) when omitted.
+   * When omitted, the engine applies its own default (expected: `1` for constant delay).
    */
   backoffMultiplier?: number;
 }

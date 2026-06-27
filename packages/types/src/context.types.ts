@@ -38,7 +38,7 @@ export interface ExecutionContext {
  * returns and stored for downstream steps and audit logging.
  */
 export interface StepResult {
-  /** The {@link NodeOutput} returned by the node's `execute()` method. */
+  /** Output (Record<string, unknown>) returned by the node's `execute()` method. */
   output: Record<string, unknown>;
   /** ISO 8601 timestamp of when the step finished (success or handled failure). */
   completedAt: string;
