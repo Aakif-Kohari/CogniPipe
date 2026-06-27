@@ -11,7 +11,7 @@ import type { ExecutionContext, NodeConfig, NodeOutput } from '@cognipipe/types'
 
 // @CogniNode({ type: 'my-org/my-node', version: '1.0.0' })
 export class MyNode /* extends BaseNode */ {
-  async execute(config: NodeConfig, _ctx: ExecutionContext): Promise<NodeOutput> {
+  async execute(_config: NodeConfig, _ctx: ExecutionContext): Promise<NodeOutput> {
     // Your implementation here
     return {};
   }

@@ -2,10 +2,10 @@
 
 ## Supported Versions
 
-| Version | Supported |
-|---------|-----------|
-| main branch | ✅ |
-| older releases | ❌ |
+| Version        | Supported |
+| -------------- | --------- |
+| main branch    | ✅        |
+| older releases | ❌        |
 
 ## Reporting a Vulnerability
 
@@ -14,6 +14,7 @@
 Email: **kohariaakif@gmail.com**
 
 Include:
+
 - Description of the vulnerability
 - Steps to reproduce
 - Potential impact

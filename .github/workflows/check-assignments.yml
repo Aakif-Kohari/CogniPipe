@@ -1,5 +1,5 @@
 # .github/workflows/check-assignments.yml
-name: "⏰ Enforce 48-Hour Assignment Rule"
+name: '⏰ Enforce 48-Hour Assignment Rule'
 
 on:
   schedule:

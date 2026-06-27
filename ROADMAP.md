@@ -3,6 +3,7 @@
 > This is a living document. Items may shift based on community feedback.
 
 ## ✅ Phase 0 — Foundation
+
 - [x] Monorepo scaffold (Turborepo + pnpm)
 - [ ] `@cognipipe/types` — shared TypeScript types
 - [ ] `@cognipipe/sdk` — BaseNode class + decorators
@@ -12,6 +13,7 @@
 - [ ] `cognipipe` CLI — run, init, test commands
 
 ## 🔄 Phase 1 — Node Ecosystem
+
 - [ ] `@cognipipe/node-anthropic`
 - [ ] `@cognipipe/node-slack`
 - [ ] `@cognipipe/node-github`
@@ -21,6 +23,7 @@
 - [ ] Context variable interpolation
 
 ## 🔮 Phase 2 — Developer Experience
+
 - [ ] `cognipipe init` interactive scaffolder
 - [ ] `cognipipe install` node package manager
 - [ ] Docusaurus documentation site
@@ -28,6 +31,7 @@
 - [ ] VS Code extension (syntax highlighting for workflow.yaml)
 
 ## 🌍 Phase 3 — Community & Scale
+
 - [ ] Public node registry
 - [ ] Workflow templates marketplace
 - [ ] `@cognipipe/node-webhook` — inbound webhook trigger
@@ -36,4 +40,4 @@
 
 ---
 
-*Have an idea? Open a [discussion](../../discussions/categories/ideas).*
+_Have an idea? Open a [discussion](../../discussions/categories/ideas)._

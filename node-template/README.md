@@ -20,21 +20,21 @@ steps:
 
 ## Configuration
 
-| Option | Type | Required | Description |
-|--------|------|----------|-------------|
-| `option1` | `string` | ✅ | Description |
-| `option2` | `number` | ❌ | Description (default: `10`) |
+| Option    | Type     | Required | Description                 |
+| --------- | -------- | -------- | --------------------------- |
+| `option1` | `string` | ✅       | Description                 |
+| `option2` | `number` | ❌       | Description (default: `10`) |
 
 ## Output
 
-| Field | Type | Description |
-|-------|------|-------------|
+| Field    | Type     | Description |
+| -------- | -------- | ----------- |
 | `result` | `string` | Description |
 
 ## Environment Variables
 
-| Variable | Description |
-|----------|-------------|
+| Variable     | Description          |
+| ------------ | -------------------- |
 | `MY_API_KEY` | API key for CHANGEME |
 
 ## License

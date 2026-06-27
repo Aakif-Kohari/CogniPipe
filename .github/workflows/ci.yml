@@ -1,5 +1,5 @@
 # .github/workflows/ci.yml
-name: "✅ CI — Lint, Type Check & Tests"
+name: '✅ CI — Lint, Type Check & Tests'
 
 on:
   pull_request:
@@ -20,18 +20,16 @@ env:
 jobs:
   # ── Job 1: Lint & Format ───────────────────────────────────────────────────
   lint:
-    name: "🔍 Lint & Format Check"
+    name: '🔍 Lint & Format Check'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # Needed for Turborepo affected detection
+          fetch-depth: 0 # Needed for Turborepo affected detection
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -55,13 +53,11 @@ jobs:
 
   # ── Job 2: TypeScript Type Check ───────────────────────────────────────────
   type-check:
-    name: "🏷️ TypeScript Type Check"
+    name: '🏷️ TypeScript Type Check'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -88,13 +84,11 @@ jobs:
 
   # ── Job 3: Tests ───────────────────────────────────────────────────────────
   test:
-    name: "🧪 Tests"
+    name: '🧪 Tests'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -103,17 +97,19 @@ jobs:
 
       - name: Run tests
         run: |
-          TEST_FILES=$(find . -name "*.test.ts" -not -path "*/node_modules/*" | wc -l)
+          TEST_FILES=$(find . -name "*.test.ts" \
+            -not -path "*/node_modules/*" \
+            -not -path "*/node-template/*" \
+            | wc -l)
           if [ "$TEST_FILES" -gt "0" ]; then
             pnpm test
           else
             echo "⏭️  No test files found yet — skipping"
-            echo "    Tests will be enforced once source code is added"
           fi
 
   # ── Job 4: Build Verification ──────────────────────────────────────────────
   build:
-    name: "🏗️ Build Verification"
+    name: '🏗️ Build Verification'
     runs-on: ubuntu-latest
     needs: [lint, type-check]
     steps:
@@ -121,8 +117,6 @@ jobs:
         with:
           fetch-depth: 0
       - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -156,7 +150,7 @@ jobs:
 
   # ── Job 5: Node API Compliance ─────────────────────────────────────────────
   node-compliance:
-    name: "🔌 Node API Compliance"
+    name: '🔌 Node API Compliance'
     runs-on: ubuntu-latest
     needs: [build]
     # Only runs on PRs that add/modify a node package
@@ -167,8 +161,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}

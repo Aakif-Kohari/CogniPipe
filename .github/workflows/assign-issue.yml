@@ -1,5 +1,5 @@
 # .github/workflows/assign-issue.yml
-name: "🤖 Issue Auto-Assignment"
+name: '🤖 Issue Auto-Assignment'
 
 on:
   issue_comment:

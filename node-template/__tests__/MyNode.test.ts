@@ -3,8 +3,10 @@
 describe('MyNode', () => {
   it('should return expected output for valid config', async () => {
     // Arrange
-    const config = { /* your test config */ };
-    const ctx = {
+    const _config = {
+      /* your test config */
+    };
+    const _ctx = {
       workflow: { name: 'test', startedAt: new Date().toISOString() },
       steps: {},
     };
@@ -14,7 +16,7 @@ describe('MyNode', () => {
 
     // Act
     // const node = new MyNode();
-    // const result = await node.execute(config, ctx);
+    // const result = await node.execute(_config, _ctx);
 
     // Assert
     // expect(result).toEqual({ ... });

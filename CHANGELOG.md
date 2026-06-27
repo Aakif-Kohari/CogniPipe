@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
 - Initial monorepo scaffold with Turborepo + pnpm workspaces
 - GitHub Actions: auto-assignment, 48-hour rule enforcement, CI pipeline
 - Issue templates: bug report, feature request, node request
