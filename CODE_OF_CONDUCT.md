@@ -27,9 +27,23 @@ Examples of unacceptable behavior:
 
 ## Enforcement
 
+Community leaders are responsible for clarifying and enforcing standards of
+acceptable behavior and will take appropriate and fair corrective action in
+response to any behavior that they deem inappropriate, threatening, offensive,
+or harmful.
+
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported by contacting the project maintainer at **kohariaakif@gmail.com**.
+reported to the project maintainer at **kohariaakif@gmail.com**.
 All complaints will be reviewed and investigated promptly and fairly.
+All community leaders are obligated to respect the privacy and security of
+the reporter of any incident.
+
+### Enforcement Guidelines
+
+**1. Correction** — Private written warning, clarity around the violation.
+**2. Warning** — A warning with consequences for continued behavior.
+**3. Temporary Ban** — Temporary ban from interaction with the community.
+**4. Permanent Ban** — Permanent ban for severe or repeated violations.
 
 ## Attribution
 

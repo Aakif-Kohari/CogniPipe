@@ -4,7 +4,9 @@
 
 ## ✅ Phase 0 — Foundation
 
-- [x] Monorepo scaffold (Turborepo + pnpm)
+- [x] Monorepo scaffold (Turborepo + pnpm workspaces)
+- [x] GitHub Actions: auto-assignment, 48-hour rule, CI, release, label-sync
+- [x] Community documentation and issue templates
 - [ ] `@cognipipe/types` — shared TypeScript types
 - [ ] `@cognipipe/sdk` — BaseNode class + decorators
 - [ ] `@cognipipe/core` — WorkflowParser, WorkflowValidator, WorkflowExecutor

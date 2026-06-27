@@ -2,10 +2,13 @@
 
 ## Supported Versions
 
-| Version        | Supported |
-| -------------- | --------- |
-| main branch    | ✅        |
-| older releases | ❌        |
+| Version                     | Supported              |
+| --------------------------- | ---------------------- |
+| `main` branch (pre-release) | ✅ Active development  |
+| Any tagged release          | ✅ Latest release only |
+
+> CogniPipe has not yet reached v1.0. All development is on `main`.
+> Once we publish our first release, only the latest version will receive security updates.
 
 ## Reporting a Vulnerability
 
