@@ -1,6 +1,10 @@
 {
   "name": "@cognipipe/node-CHANGEME",
   "version": "0.0.1",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  },
   "description": "CogniPipe node for CHANGEME",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -27,9 +31,6 @@
     "jest": "^29.7.0",
     "ts-jest": "^29.2.5",
     "typescript": "^5.7.2"
-  },
-  "engines": {
-    "node": ">=18.0.0"
   },
   "license": "MIT"
 }
