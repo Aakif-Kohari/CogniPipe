@@ -53,6 +53,24 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
+  nodes/node-anthropic: {}
+
+  nodes/node-github: {}
+
+  nodes/node-http: {}
+
+  nodes/node-openai: {}
+
+  nodes/node-slack: {}
+
+  nodes/node-transform: {}
+
+  packages/core: {}
+
+  packages/sdk: {}
+
+  packages/testing: {}
+
   packages/types: {}
 
 packages:

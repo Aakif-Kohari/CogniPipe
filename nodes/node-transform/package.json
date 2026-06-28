@@ -1,0 +1,15 @@
+{
+  "name": "@cognipipe/node-transform",
+  "version": "0.0.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "description": "Data transformation node for CogniPipe",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Aakif-Kohari/cognipipe.git",
+    "directory": "nodes/node-transform"
+  }
+}
