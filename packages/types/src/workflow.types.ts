@@ -35,6 +35,12 @@
 export interface WorkflowConfig {
   /** Human-readable name of the workflow. Used in logs and error messages. */
   name: string;
+  /**
+   * Semantic version of the workflow schema (e.g. `"1.0.0"`).
+   * The engine rejects workflows whose major version is incompatible
+   * with the installed engine version.
+   */
+  version: string;
   /** Optional description shown in `cognipipe list`. */
   description?: string;
   /**
@@ -97,24 +103,24 @@ export interface StepConfig {
 
 /**
  * Retry policy applied to a single {@link StepConfig} on failure.
- * The engine uses exponential back-off: each successive delay is
- * `initialDelayMs * backoffMultiplier ^ attemptIndex`.
+ * The validator ensures retry values fall within the supported range.
  */
 export interface RetryConfig {
   /**
    * Maximum number of retry attempts after the initial failure.
-   * A value of `3` means up to 4 total attempts (1 initial + 3 retries).
+   * Minimum 1, maximum 10.
    */
-  maxRetries: number;
+  attempts: number;
+
   /**
-   * Delay in milliseconds before the first retry.
-   * When omitted, the engine applies its own default (expected: `0` for immediate retry).
+   * Delay in milliseconds before each retry.
+   * Minimum 0.
    */
-  initialDelayMs?: number;
+  delayMs: number;
+
   /**
-   * Multiplier applied to `initialDelayMs` on each successive retry.
-   * A value of `2` produces delays of 500 ms, 1 000 ms, 2 000 ms, and so on.
-   * When omitted, the engine applies its own default (expected: `1` for constant delay).
+   * Retry back-off strategy.
+   * Defaults to a constant delay when omitted.
    */
-  backoffMultiplier?: number;
+  backoff?: 'linear' | 'exponential';
 }

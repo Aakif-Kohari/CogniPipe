@@ -74,6 +74,6 @@ export class WorkflowValidator {
       );
     }
 
-    return result.data as WorkflowConfig;
+    return result.data;
   }
 }

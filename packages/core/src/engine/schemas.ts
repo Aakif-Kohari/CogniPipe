@@ -36,6 +36,7 @@ export const StepConfigSchema = z.object({
     .min(1, 'Step "uses" field must be a non-empty package name, e.g. "@cognipipe/node-http"'),
   config: z.record(z.unknown()).default({}),
   dependsOn: z.array(z.string()).optional(),
+  continueOnError: z.boolean().optional(),
   retry: RetryConfigSchema.optional(),
 });
 
