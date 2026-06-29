@@ -7,13 +7,18 @@
  * Consumers should import directly from this package:
  * ```typescript
  * import { CogniPipeError, COGNIPIPE_ERROR_CODES, isCogniPipeError } from '@cognipipe/core';
+ * import { WorkflowValidator, WorkflowConfigSchema } from '@cognipipe/core';
  * ```
  *
  * Modules re-exported here:
  * - `errors/CogniPipeError` — {@link CogniPipeError}, {@link CogniPipeErrorOptions}, {@link isCogniPipeError}
  * - `errors/errorCodes`    — {@link COGNIPIPE_ERROR_CODES}, {@link CogniPipeErrorCode}
+ * - `engine/WorkflowValidator` — {@link WorkflowValidator}
+ * - `engine/schemas`       — {@link WorkflowConfigSchema}, {@link StepConfigSchema}, {@link RetryConfigSchema}
  */
 export { CogniPipeError, isCogniPipeError } from './errors/CogniPipeError';
 export type { CogniPipeErrorOptions } from './errors/CogniPipeError';
 export { COGNIPIPE_ERROR_CODES } from './errors/errorCodes';
 export type { CogniPipeErrorCode } from './errors/errorCodes';
+export { WorkflowValidator } from './engine/WorkflowValidator';
+export { WorkflowConfigSchema, StepConfigSchema, RetryConfigSchema } from './engine/schemas';
