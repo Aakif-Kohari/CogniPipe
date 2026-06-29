@@ -5,9 +5,7 @@
     "rootDir": "src",
     "types": ["jest", "node"],
     "module": "CommonJS",
-    "moduleResolution": "node16",
-    "composite": true,
-    "noEmit": true
+    "moduleResolution": "node16"
   },
   "include": ["src/**/__tests__/**/*.ts", "src/**/*.test.ts"]
 }

@@ -15,6 +15,7 @@
  * ```typescript
  * const config: WorkflowConfig = {
  *   name: 'daily-report',
+ *   version: '1.0.0',
  *   description: 'Fetches data and posts a daily summary to Slack.',
  *   steps: [
  *     {
@@ -66,7 +67,7 @@ export interface WorkflowConfig {
  *   },
  *   dependsOn: ['auth-step'],
  *   continueOnError: false,
- *   retry: { maxRetries: 3, initialDelayMs: 500, backoffMultiplier: 2 },
+ *   retry: {  attempts: 3,  delayMs: 500, backoff: 'exponential' },
  * };
  * ```
  */

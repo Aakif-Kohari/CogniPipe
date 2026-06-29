@@ -1,6 +1,6 @@
 ---
 '@cognipipe/core': minor
-'@cognipipe/types': patch
+'@cognipipe/types': minor
 ---
 
 Implemented WorkflowValidator with Zod schema validation
