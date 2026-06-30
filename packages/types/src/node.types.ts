@@ -32,8 +32,8 @@ export interface NodeDefinition {
 
 /**
  * The arbitrary key-value output returned by a node after its `execute()` method
- * completes successfully. Downstream steps access this data through
- * {@link ExecutionContext.steps}.
+ * completes successfully. Downstream steps access this data through the reserved
+ * `steps` namespace stored within an {@link IExecutionContext}.
  *
  * Keys and value shapes are node-specific and documented in each node's `README.md`.
  */

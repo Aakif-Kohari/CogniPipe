@@ -8,6 +8,7 @@
  * ```typescript
  * import { CogniPipeError, COGNIPIPE_ERROR_CODES, isCogniPipeError } from '@cognipipe/core';
  * import { WorkflowValidator, WorkflowConfigSchema } from '@cognipipe/core';
+ * import { ExecutionContext, resolveTemplate, resolveDotPath } from '@cognipipe/core';
  * ```
  *
  * Modules re-exported here:
@@ -15,6 +16,8 @@
  * - `errors/errorCodes`    — {@link COGNIPIPE_ERROR_CODES}, {@link CogniPipeErrorCode}
  * - `engine/WorkflowValidator` — {@link WorkflowValidator}
  * - `engine/schemas`       — {@link WorkflowConfigSchema}, {@link StepConfigSchema}, {@link RetryConfigSchema}
+ * - `engine/ExecutionContext` — {@link ExecutionContext}
+ * - `engine/interpolation`    — {@link resolveTemplate}, {@link resolveDotPath}
  */
 export { CogniPipeError, isCogniPipeError } from './errors/CogniPipeError';
 export type { CogniPipeErrorOptions } from './errors/CogniPipeError';
@@ -22,3 +25,5 @@ export { COGNIPIPE_ERROR_CODES } from './errors/errorCodes';
 export type { CogniPipeErrorCode } from './errors/errorCodes';
 export { WorkflowValidator } from './engine/WorkflowValidator';
 export { WorkflowConfigSchema, StepConfigSchema, RetryConfigSchema } from './engine/schemas';
+export { ExecutionContext } from './engine/ExecutionContext';
+export { resolveTemplate, resolveDotPath } from './engine/interpolation';
