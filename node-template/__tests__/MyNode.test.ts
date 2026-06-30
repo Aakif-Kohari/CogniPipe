@@ -3,9 +3,7 @@
 describe('MyNode', () => {
   it('should return expected output for valid config', async () => {
     // Arrange
-    const _config = {
-      /* your test config */
-    };
+    const _config = {/* your test config */};
     const _ctx = {
       workflow: { name: 'test', startedAt: new Date().toISOString() },
       steps: {},
