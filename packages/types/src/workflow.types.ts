@@ -74,7 +74,7 @@ export interface WorkflowConfig {
 export interface StepConfig {
   /**
    * Unique identifier for this step within the workflow.
-   * Used as the key within the reserved `steps` namespace of an {@link IExecutionContext}.
+   * Used as the key under the reserved `steps` namespace, where each entry is a {@link StepResult}, within an {@link IExecutionContext}.
    */
   name: string;
   /**

@@ -22,6 +22,10 @@ describe('resolveDotPath', () => {
     );
   });
 
+  it('resolves a top-level array path', () => {
+    expect(resolveDotPath({ items: ['a', 'b'] }, 'items[0]')).toBe('a');
+  });
+
   it('returns obj itself for an empty path', () => {
     const obj = { a: 1 };
     expect(resolveDotPath(obj, '')).toBe(obj);
@@ -58,6 +62,20 @@ describe('resolveTemplate', () => {
     expect(resolveTemplate('{{ steps.fetch-issues.output.users[0].name }}', ctx)).toBe('Alice');
   });
 
+  it('resolves a top-level array index', () => {
+    const arrayCtx = new ExecutionContext({
+      items: ['apple', 'banana'],
+    });
+    expect(resolveTemplate('{{ items[0] }}', arrayCtx)).toBe('apple');
+  });
+
+  it('resolves a top-level array index with a nested property', () => {
+    const arrayCtx = new ExecutionContext({
+      users: [{ name: 'Alice' }, { name: 'Bob' }],
+    });
+    expect(resolveTemplate('{{ users[1].name }}', arrayCtx)).toBe('Bob');
+  });
+
   it('returns a string with no tokens unchanged', () => {
     expect(resolveTemplate('plain string', ctx)).toBe('plain string');
   });
@@ -72,6 +90,38 @@ describe('resolveTemplate', () => {
 
   it('coerces a numeric resolved value to its string representation', () => {
     expect(resolveTemplate('{{ steps.fetch-issues.output.count }}', ctx)).toBe('42');
+  });
+
+  it('throws INTERPOLATION_ERROR when the root value is null', () => {
+    const nullCtx = new ExecutionContext({
+      foo: null,
+    });
+    let thrown: unknown;
+    try {
+      resolveTemplate('{{ foo }}', nullCtx);
+    } catch (err) {
+      thrown = err;
+    }
+    expect(thrown instanceof CogniPipeError).toBe(true);
+    expect((thrown as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.INTERPOLATION_ERROR);
+    expect((thrown as CogniPipeError).message).toContain('foo');
+  });
+
+  it('throws INTERPOLATION_ERROR when a nested value is null', () => {
+    const nullCtx = new ExecutionContext({
+      foo: {
+        bar: null,
+      },
+    });
+    let thrown: unknown;
+    try {
+      resolveTemplate('{{ foo.bar }}', nullCtx);
+    } catch (err) {
+      thrown = err;
+    }
+    expect(thrown instanceof CogniPipeError).toBe(true);
+    expect((thrown as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.INTERPOLATION_ERROR);
+    expect((thrown as CogniPipeError).message).toContain('foo.bar');
   });
 
   it('throws INTERPOLATION_ERROR naming the full expression when the nested path is missing', () => {

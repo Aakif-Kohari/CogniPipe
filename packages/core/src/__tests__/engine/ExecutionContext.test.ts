@@ -40,6 +40,12 @@ describe('ExecutionContext', () => {
       const ctx = new ExecutionContext({ a: 1, b: 'two' });
       expect(ctx.toJSON()).toEqual({ a: 1, b: 'two' });
     });
+
+    it('accepts a ReadonlyMap', () => {
+      const map = new Map([['x', 5]]);
+      const ctx = new ExecutionContext(map);
+      expect(ctx.get('x')).toBe(5);
+    });
   });
 
   describe('interpolation', () => {

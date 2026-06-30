@@ -32,8 +32,12 @@ export class ExecutionContext implements IExecutionContext {
    * @param initial - Optional seed data. Keys become accessible immediately.
    *   Defaults to an empty store.
    */
-  constructor(initial?: Record<string, unknown>) {
-    this.#store = new Map(Object.entries(initial ?? {}));
+  constructor(initial: Record<string, unknown> | ReadonlyMap<string, unknown> = {}) {
+    if (initial instanceof Map) {
+      this.#store = new Map(initial);
+    } else {
+      this.#store = new Map(Object.entries(initial));
+    }
   }
 
   /** Retrieves a stored value by key, or `undefined` if the key is absent. */
@@ -48,7 +52,7 @@ export class ExecutionContext implements IExecutionContext {
   set(key: string, value: unknown): ExecutionContext {
     const next = new Map(this.#store);
     next.set(key, value);
-    return new ExecutionContext(Object.fromEntries(next));
+    return new ExecutionContext(next);
   }
 
   /** Returns `true` if the given key exists in the context store. */

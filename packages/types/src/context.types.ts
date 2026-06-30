@@ -45,3 +45,20 @@ export interface IExecutionContext {
   /** Returns a plain-object snapshot of the entire store, suitable for logging. */
   toJSON(): Record<string, unknown>;
 }
+
+/**
+ * The result produced by a workflow step and stored in the execution context.
+ *
+ * Workflow executors should store these objects under the reserved
+ * `steps` namespace using the step name as the key.
+ */
+export interface StepResult {
+  /** Output (Record<string, unknown>) returned by the node's `execute()` method. */
+  output: Record<string, unknown>;
+  /** ISO 8601 timestamp of when the step finished (success or handled failure). */
+  completedAt: string;
+  /** Wall-clock duration of the step execution in milliseconds. */
+  durationMs: number;
+  /** Returns a plain-object snapshot of the entire store, suitable for logging. */
+  toJSON(): Record<string, unknown>;
+}

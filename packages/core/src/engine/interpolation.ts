@@ -81,7 +81,7 @@ export function resolveDotPath(obj: unknown, path: string): unknown {
  * @param context  - The ExecutionContext to resolve expressions against.
  * @returns The fully resolved string.
  * @throws {CogniPipeError} INTERPOLATION_ERROR — if any expression resolves
- *   to `undefined` or the expression is empty.
+ *   to `undefined`, `null`, or the expression is empty.
  *
  * @example
  * ```typescript
@@ -101,15 +101,17 @@ export function resolveTemplate(template: string, context: IExecutionContext): s
     }
 
     // Split on the first "." only to isolate the root context key.
-    const dotIndex = expression.indexOf('.');
-    const rootKey = dotIndex === -1 ? expression : expression.slice(0, dotIndex);
-    const remainderPath = dotIndex === -1 ? '' : expression.slice(dotIndex + 1);
+    const separatorMatch = expression.match(/[.[\]]/);
+    const separatorIndex = separatorMatch?.index ?? -1;
+    const rootKey = separatorIndex === -1 ? expression : expression.slice(0, separatorIndex);
+    const remainderPath =
+      separatorIndex === -1 ? '' : expression.slice(separatorIndex).replace(/^\./, '');
 
     const storedValue = context.get(rootKey);
 
-    if (storedValue === undefined) {
+    if (storedValue === undefined || storedValue === null) {
       throw new CogniPipeError(
-        `Context interpolation failed: "{{ ${expression} }}" — key "${rootKey}" is not in the context. Ensure the referenced step ran before this one.`,
+        `Context interpolation failed: "{{ ${expression} }}" — key "${rootKey}" is not in the context or resolved to null. Ensure the referenced step ran before this one.`,
         {
           code: COGNIPIPE_ERROR_CODES.INTERPOLATION_ERROR,
           context: { expression, rootKey },
@@ -119,9 +121,9 @@ export function resolveTemplate(template: string, context: IExecutionContext): s
 
     const resolvedValue = resolveDotPath(storedValue, remainderPath);
 
-    if (resolvedValue === undefined) {
+    if (resolvedValue === undefined || resolvedValue === null) {
       throw new CogniPipeError(
-        `Context interpolation failed: "{{ ${expression} }}" — path "${remainderPath}" could not be resolved on the stored value.`,
+        `Context interpolation failed: "{{ ${expression} }}" — path "${remainderPath}" could not be resolved on the stored value or resolved to null.`,
         {
           code: COGNIPIPE_ERROR_CODES.INTERPOLATION_ERROR,
           context: { expression, rootKey, remainderPath },
