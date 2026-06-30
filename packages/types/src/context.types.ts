@@ -59,6 +59,4 @@ export interface StepResult {
   completedAt: string;
   /** Wall-clock duration of the step execution in milliseconds. */
   durationMs: number;
-  /** Returns a plain-object snapshot of the entire store, suitable for logging. */
-  toJSON(): Record<string, unknown>;
 }

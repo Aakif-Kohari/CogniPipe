@@ -12,7 +12,7 @@
  * Modules re-exported here:
  * - `workflow.types` — {@link WorkflowConfig}, {@link StepConfig}, {@link RetryConfig}
  * - `node.types`     — {@link NodeDefinition}, {@link NodeOutput}, {@link NodeConfig}
- * - `context.types`  — {@link IExecutionContext}
+ * - `context.types`  — {@link IExecutionContext}, {@link StepResult}
  */
 export * from './workflow.types';
 export * from './node.types';
