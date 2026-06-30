@@ -65,7 +65,14 @@ importers:
 
   nodes/node-transform: {}
 
-  packages/core: {}
+  packages/core:
+    dependencies:
+      '@cognipipe/types':
+        specifier: workspace:*
+        version: link:../types
+      zod:
+        specifier: ^3.22.0
+        version: 3.25.76
 
   packages/sdk: {}
 
@@ -3424,6 +3431,12 @@ packages:
       }
     engines: { node: '>=10' }
 
+  zod@3.25.76:
+    resolution:
+      {
+        integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==,
+      }
+
 snapshots:
   '@babel/code-frame@7.29.7':
     dependencies:
@@ -5696,3 +5709,5 @@ snapshots:
       yargs-parser: 21.1.1
 
   yocto-queue@0.1.0: {}
+
+  zod@3.25.76: {}
