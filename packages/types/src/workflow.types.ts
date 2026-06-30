@@ -74,7 +74,7 @@ export interface WorkflowConfig {
 export interface StepConfig {
   /**
    * Unique identifier for this step within the workflow.
-   * Used as the key in {@link ExecutionContext.steps} after execution completes.
+   * Used as the key under the reserved `steps` namespace, where each entry is a {@link StepResult}, within an {@link IExecutionContext}.
    */
   name: string;
   /**
@@ -91,7 +91,7 @@ export interface StepConfig {
   dependsOn?: string[];
   /**
    * When `true`, the workflow continues even if this step throws or returns an error.
-   * The failed step's result is still recorded in the {@link ExecutionContext}.
+   * The failed step's result is still recorded in the {@link IExecutionContext}.
    * When omitted, the engine applies its own default (expected: `false`).
    */
   continueOnError?: boolean;

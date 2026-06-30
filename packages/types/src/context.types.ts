@@ -1,41 +1,56 @@
 /**
  * @module context.types
  *
- * Defines the execution context and step result types that act as the data
- * carrier between nodes during a workflow run. The {@link ExecutionContext} is
- * created once per workflow execution and threaded through every step so that
- * each node can read the outputs of its predecessors.
+ * Defines the read/write contract for CogniPipe's execution context — the
+ * data carrier threaded through every step of a workflow run. The concrete,
+ * immutable implementation lives in `@cognipipe/core` as `ExecutionContext`.
  */
 
 /**
- * The execution context passed between nodes during a workflow run.
- * Created by `WorkflowExecutor` at the start of each run and updated
- * after every step completes. Nodes receive this as their second argument
- * and may read (but must not mutate) the `steps` map.
+ * The read/write contract for CogniPipe's execution context.
+ * All mutating methods return new instances — implementations must be immutable.
+ *
+ * The canonical usage pattern is `{{ steps.<step-name>.<dot.path> }}` where
+ * `steps` is the reserved namespace key the executor writes all step outputs into,
+ * and `<step-name>` is the `name` field from a step's WorkflowConfig entry.
  */
-export interface ExecutionContext {
+export interface IExecutionContext {
+  /** Retrieves a stored value by key, or `undefined` if the key is absent. */
+  get(key: string): unknown;
+
   /**
-   * Workflow-level metadata injected at the start of the run.
-   * Useful for logging and tracing within nodes.
+   * Returns a NEW IExecutionContext with the given key set to `value`.
+   * The original instance is NOT mutated.
    */
-  workflow: {
-    /** The `name` field from the originating {@link WorkflowConfig}. */
-    name: string;
-    /** ISO 8601 timestamp of when the workflow execution began. */
-    startedAt: string;
-  };
+  set(key: string, value: unknown): IExecutionContext;
+
+  /** Returns `true` if the given key exists in the context store. */
+  has(key: string): boolean;
+
   /**
-   * Outputs from all completed steps, keyed by step name.
-   * A step can read the output of a predecessor via `context.steps['step-name'].output`.
-   * Steps are added to this map as they complete; only finished steps are present.
+   * Resolves all `{{ expression }}` tokens in `template` against the stored data.
+   * Expressions follow the format `{{ steps.<step-name>.<dot.path> }}`.
+   *
+   * @throws {CogniPipeError} INTERPOLATION_ERROR if any expression cannot be resolved.
+   *
+   * @example
+   * ```typescript
+   * // After step "fetch-issues" runs and its output is stored:
+   * ctx.interpolate('Found {{ steps.fetch-issues.output.count }} open issues');
+   * // → 'Found 42 open issues'
+   * ```
    */
-  steps: Record<string, StepResult>;
+  interpolate(template: string): string;
+
+  /** Returns a plain-object snapshot of the entire store, suitable for logging. */
+  toJSON(): Record<string, unknown>;
 }
 
 /**
- * The result recorded in {@link ExecutionContext.steps} after a step finishes.
- * Captured by `WorkflowExecutor` immediately after a node's `execute()` call
- * returns and stored for downstream steps and audit logging.
+ * The result produced by a workflow step and stored in the execution context.
+ *
+ * Workflow executors should store these objects under the reserved
+ * `steps` namespace using the step name as the key.
  */
 export interface StepResult {
   /** Output (Record<string, unknown>) returned by the node's `execute()` method. */

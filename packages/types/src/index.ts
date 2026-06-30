@@ -6,13 +6,13 @@
  *
  * Consumers should import directly from this package:
  * ```typescript
- * import type { WorkflowConfig, StepConfig, ExecutionContext } from '@cognipipe/types';
+ * import type { WorkflowConfig, StepConfig, IExecutionContext } from '@cognipipe/types';
  * ```
  *
  * Modules re-exported here:
  * - `workflow.types` — {@link WorkflowConfig}, {@link StepConfig}, {@link RetryConfig}
  * - `node.types`     — {@link NodeDefinition}, {@link NodeOutput}, {@link NodeConfig}
- * - `context.types`  — {@link ExecutionContext}, {@link StepResult}
+ * - `context.types`  — {@link IExecutionContext}, {@link StepResult}
  */
 export * from './workflow.types';
 export * from './node.types';
