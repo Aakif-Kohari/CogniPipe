@@ -141,7 +141,7 @@ Implement the `BaseNode` interface:
 
 ```typescript
 import { BaseNode, CogniNode } from '@cognipipe/sdk';
-import type { ExecutionContext, NodeConfig, NodeOutput } from '@cognipipe/types';
+import type { IExecutionContext, NodeConfig, NodeOutput } from '@cognipipe/types';
 
 /** Sends data to MyService API */
 @CogniNode({ type: '@cognipipe/node-myservice', version: '1.0.0' })
@@ -152,7 +152,7 @@ export class MyServiceNode extends BaseNode {
    * @param ctx - Execution context containing outputs from previous steps
    * @returns NodeOutput containing results accessible to downstream steps
    */
-  async execute(config: NodeConfig, ctx: ExecutionContext): Promise<NodeOutput> {
+  async execute(config: NodeConfig, ctx: IExecutionContext): Promise<NodeOutput> {
     // your implementation
     return { result: 'done' };
   }
