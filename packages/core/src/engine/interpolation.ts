@@ -22,7 +22,7 @@ import { COGNIPIPE_ERROR_CODES } from '../errors/errorCodes';
  * still trimmed below via `.trim()`, so behaviour for well-formed input is
  * unchanged.
  */
-const TOKEN_PATTERN = /{{([^}]+)}}/g;
+const TOKEN_PATTERN = /{{([^{}]+)}}/g;
 
 /**
  * Resolves a dot-notation path string against a nested object.

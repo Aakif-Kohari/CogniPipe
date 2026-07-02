@@ -196,4 +196,18 @@ describe('resolveTemplate — ReDoS resistance (CodeQL js/polynomial-redos)', ()
     const template = '{{   steps.fetch-issues.output.count   }}';
     expect(resolveTemplate(template, ctx)).toBe('42');
   });
+  it('resolves instantly on many repeated unterminated openers (quadratic-scan regression)', () => {
+    const malicious = '{{'.repeat(60_000);
+    const start = Date.now();
+    const result = resolveTemplate(malicious, ctx);
+    const elapsed = Date.now() - start;
+
+    // Every "{{" is a potential match start with no closing "}}" anywhere.
+    // The naive fix ([^}]+) let '{' slip into the content class, so each of
+    // the ~60k overlapping start positions triggered its own full scan to
+    // end-of-string before failing — O(n²). Excluding '{' too makes every
+    // failed start position fail in O(1).
+    expect(result).toBe(malicious);
+    expect(elapsed).toBeLessThan(200);
+  });
 });
