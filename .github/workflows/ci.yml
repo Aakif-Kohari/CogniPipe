@@ -8,6 +8,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 # Cancel redundant runs on the same branch
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

@@ -159,3 +159,55 @@ describe('resolveTemplate', () => {
     expect((thrown as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.INTERPOLATION_ERROR);
   });
 });
+
+describe('resolveTemplate — ReDoS resistance (CodeQL js/polynomial-redos)', () => {
+  const ctx = new ExecutionContext({
+    steps: {
+      'fetch-issues': {
+        output: { count: 42 },
+      },
+    },
+  });
+
+  it('resolves instantly on an unterminated token followed by many spaces', () => {
+    const malicious = '{{' + ' '.repeat(100_000);
+    const start = Date.now();
+    const result = resolveTemplate(malicious, ctx);
+    const elapsed = Date.now() - start;
+
+    // No closing "}}" exists, so the token never matches and the string
+    // is returned unchanged. Before the fix, this input caused the regex
+    // engine's backtracking to blow up (would time out well past 1s).
+    expect(result).toBe(malicious);
+    expect(elapsed).toBeLessThan(200);
+  });
+
+  it('resolves instantly on a token opener followed by many spaces then a pipe', () => {
+    const malicious = '{{|' + ' '.repeat(100_000);
+    const start = Date.now();
+    const result = resolveTemplate(malicious, ctx);
+    const elapsed = Date.now() - start;
+
+    expect(result).toBe(malicious);
+    expect(elapsed).toBeLessThan(200);
+  });
+
+  it('still resolves a well-formed token surrounded by lots of incidental whitespace', () => {
+    const template = '{{   steps.fetch-issues.output.count   }}';
+    expect(resolveTemplate(template, ctx)).toBe('42');
+  });
+  it('resolves instantly on many repeated unterminated openers (quadratic-scan regression)', () => {
+    const malicious = '{{'.repeat(60_000);
+    const start = Date.now();
+    const result = resolveTemplate(malicious, ctx);
+    const elapsed = Date.now() - start;
+
+    // Every "{{" is a potential match start with no closing "}}" anywhere.
+    // The naive fix ([^}]+) let '{' slip into the content class, so each of
+    // the ~60k overlapping start positions triggered its own full scan to
+    // end-of-string before failing — O(n²). Excluding '{' too makes every
+    // failed start position fail in O(1).
+    expect(result).toBe(malicious);
+    expect(elapsed).toBeLessThan(200);
+  });
+});
