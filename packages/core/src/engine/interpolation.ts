@@ -10,8 +10,19 @@ import type { IExecutionContext } from '@cognipipe/types';
 import { CogniPipeError } from '../errors/CogniPipeError';
 import { COGNIPIPE_ERROR_CODES } from '../errors/errorCodes';
 
-/** Matches `{{ expression }}` tokens, capturing the trimmed inner expression. */
-const TOKEN_PATTERN = /{{\s*([^}]+?)\s*}}/g;
+/**
+ * Matches `{{ expression }}` tokens, capturing the raw inner content.
+ *
+ * Deliberately does NOT use `\s*` around the capture group. `\s` is a subset
+ * of `[^}]`, so pairing `\s*` with `([^}]+?)` lets the engine split a run of
+ * whitespace between the two in exponentially many ways — a classic
+ * polynomial/exponential ReDoS shape (CWE-1333) triggered by unterminated
+ * input like `"{{" + " ".repeat(n)`. A single unambiguous `[^}]+` is linear
+ * regardless of input shape. Leading/trailing whitespace inside the token is
+ * still trimmed below via `.trim()`, so behaviour for well-formed input is
+ * unchanged.
+ */
+const TOKEN_PATTERN = /{{([^}]+)}}/g;
 
 /**
  * Resolves a dot-notation path string against a nested object.
