@@ -17,7 +17,7 @@ importers:
         specifier: ^30.0.0
         version: 30.0.0
       '@types/node':
-        specifier: ^22.10.2
+        specifier: ^22.20.0
         version: 22.20.0
       '@typescript-eslint/eslint-plugin':
         specifier: ^8.62.1
@@ -70,9 +70,16 @@ importers:
       '@cognipipe/types':
         specifier: workspace:*
         version: link:../types
+      js-yaml:
+        specifier: ^4.1.0
+        version: 4.2.0
       zod:
         specifier: ^3.22.0
         version: 3.25.76
+    devDependencies:
+      '@types/js-yaml':
+        specifier: ^4.0.9
+        version: 4.0.9
 
   packages/sdk: {}
 
@@ -969,6 +976,12 @@ packages:
     resolution:
       {
         integrity: sha512-XTYugzhuwqWjws0CVz8QpM36+T+Dz5mTEBKhNs/esGLnCIlGdRy+Dq78NRjd7ls7r8BC8ZRMOrKlkO1hU0JOwA==,
+      }
+
+  '@types/js-yaml@4.0.9':
+    resolution:
+      {
+        integrity: sha512-k4MGaQl5TGo/iipqb2UDG2UwjXziSWkh0uysQelTlJpX1qGlpUZYm8PnO4DxG1qBomtJUdYJ6qR6xdIah10JLg==,
       }
 
   '@types/json-schema@7.0.15':
@@ -2501,13 +2514,6 @@ packages:
       {
         integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==,
       }
-
-  js-yaml@3.14.2:
-    resolution:
-      {
-        integrity: sha512-PMSmkqxr106Xa156c2M265Z+FTrPl+oxd/rgOQy2tijQeK5TxQ43psO1ZCwhVOSdnn+RzkzlRz/eY4BgJBYVpg==,
-      }
-    hasBin: true
 
   js-yaml@3.15.0:
     resolution:
@@ -4336,6 +4342,8 @@ snapshots:
       expect: 30.4.1
       pretty-format: 30.4.1
 
+  '@types/js-yaml@4.0.9': {}
+
   '@types/json-schema@7.0.15': {}
 
   '@types/node@12.20.55': {}
@@ -5399,11 +5407,6 @@ snapshots:
 
   js-tokens@4.0.0: {}
 
-  js-yaml@3.14.2:
-    dependencies:
-      argparse: 1.0.10
-      esprima: 4.0.1
-
   js-yaml@3.15.0:
     dependencies:
       argparse: 1.0.10
@@ -5659,7 +5662,7 @@ snapshots:
   read-yaml-file@1.1.0:
     dependencies:
       graceful-fs: 4.2.11
-      js-yaml: 3.14.2
+      js-yaml: 3.15.0
       pify: 4.0.1
       strip-bom: 3.0.0
 
