@@ -24,7 +24,7 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.27.9",
+    "@changesets/cli": "^2.31.0",
     "@eslint/js": "^10.0.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.20.0",
@@ -36,9 +36,9 @@
     "jest": "^30.4.2",
     "lint-staged": "^17.0.8",
     "prettier": "^3.9.4",
-    "ts-jest": "^29.2.5",
-    "turbo": "^2.10.1",
-    "typescript": "^5.7.2"
+    "ts-jest": "^29.4.11",
+    "turbo": "^2.10.3",
+    "typescript": "^5.9.3"
   },
   "overrides": {
     "js-yaml": "^4.2.0"
