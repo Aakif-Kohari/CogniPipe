@@ -155,12 +155,18 @@ describe('WorkflowParser', () => {
     });
 
     it('throws for a .ts extension before any file read', async () => {
-      await expectParseErrorAsync(() => parser.parseFile('workflow.ts'));
+      const err = await expectParseErrorAsync(() => parser.parseFile('workflow.ts'));
+      expect(err.message).toBe(
+        'Unsupported workflow file extension ".ts". Expected one of: .yaml, .yml, .json. Got: "workflow.ts"',
+      );
       expect(mockReadFile).not.toHaveBeenCalled();
     });
 
     it('throws for a .txt extension before any file read', async () => {
-      await expectParseErrorAsync(() => parser.parseFile('notes.txt'));
+      const err = await expectParseErrorAsync(() => parser.parseFile('notes.txt'));
+      expect(err.message).toBe(
+        'Unsupported workflow file extension ".txt". Expected one of: .yaml, .yml, .json. Got: "notes.txt"',
+      );
       expect(mockReadFile).not.toHaveBeenCalled();
     });
 
