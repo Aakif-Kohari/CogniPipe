@@ -46,7 +46,7 @@ export class WorkflowValidator {
       }
 
       const path = issue.path
-        .map(seg => (typeof seg === 'number' ? `[${seg}]` : `.${seg}`))
+        .map(seg => (typeof seg === 'number' ? `[${seg}]` : `.${String(seg)}`))
         .join('')
         .replace(/^\./, '');
 
@@ -56,7 +56,7 @@ export class WorkflowValidator {
       const receivedValue = issue.path.reduce<unknown>(
         (acc, seg) =>
           acc != null && typeof acc === 'object'
-            ? (acc as Record<string | number, unknown>)[seg]
+            ? (acc as Record<string | number, unknown>)[seg as string | number]
             : undefined,
         raw,
       );
