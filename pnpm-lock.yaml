@@ -81,7 +81,11 @@ importers:
         specifier: ^4.0.9
         version: 4.0.9
 
-  packages/sdk: {}
+  packages/sdk:
+    dependencies:
+      '@cognipipe/types':
+        specifier: workspace:*
+        version: link:../types
 
   packages/testing: {}
 

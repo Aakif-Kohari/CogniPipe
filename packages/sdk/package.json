@@ -6,7 +6,25 @@
     "node": ">=22.0.0",
     "pnpm": ">=9.0.0"
   },
-  "description": "Node development SDK for CogniPipe",
+  "description": "BaseNode abstract class and @CogniNode() decorator for building CogniPipe nodes",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "jest --coverage",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src/",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@cognipipe/types": "workspace:*"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
