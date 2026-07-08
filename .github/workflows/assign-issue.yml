@@ -87,35 +87,9 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const issueNum = context.issue.number;
-
-            // 1. Label check
             const labels = context.payload.issue.labels.map(l => l.name);
-            const labelBlocked = labels.includes('blocked');
-
-            // 2. Relationship check (blockedBy) via GraphQL
-            const query = `
-              query($owner: String!, $repo: String!, $num: Int!) {
-                repository(owner: $owner, name: $repo) {
-                  issue(number: $num) {
-                    blockedBy(first: 10) {
-                      nodes { number state }
-                    }
-                  }
-                }
-              }`;
-            const result = await github.graphql(query, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              num: issueNum,
-            });
-            const openBlockers = result.repository.issue.blockedBy.nodes
-              .filter(n => n.state === 'OPEN')
-              .map(n => n.number);
-
-            const isBlocked = labelBlocked || openBlockers.length > 0;
+            const isBlocked = labels.includes('blocked');
             core.setOutput('blocked', isBlocked.toString());
-            core.setOutput('blocker-list', openBlockers.join(', '));
 
       # ─── Case: Issue is free — assign and start the clock ─────────────────
       - name: Assign contributor + start 48h clock
@@ -182,12 +156,11 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const blockers = '${{ steps.check-blocked.outputs.blocker-list }}';
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `This issue is currently **blocked**${blockers ? \` by #${blockers}\` : ''} and can't be assigned yet. It'll open up once the blocker is resolved! and the \`blocked\` label is removed.`,
+              body: `This issue is currently **blocked** and can't be assigned yet. It'll open up once the \`blocked\` label is removed!`,
             });
 
       # ─── Case: Already assigned to themselves ──────────────────────────────
