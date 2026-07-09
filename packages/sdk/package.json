@@ -23,7 +23,9 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@cognipipe/types": "workspace:*"
+    "@cognipipe/core": "workspace:*",
+    "@cognipipe/types": "workspace:*",
+    "zod": "^4.4.3"
   },
   "license": "MIT",
   "repository": {
