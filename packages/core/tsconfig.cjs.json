@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist/cjs",
+    "rootDir": "src",
+    "module": "CommonJS",
+    // "node10" (not "node16") is required here: TS locks module+moduleResolution
+    // together only for the Node16/NodeNext pair. module:CommonJS pairs with
+    // the classic resolver. Using "node16" here throws TS5110.
+    "moduleResolution": "node10"
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "src/**/__tests__/**", "**/*.test.ts"]
+}

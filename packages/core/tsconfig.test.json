@@ -5,6 +5,11 @@
     "rootDir": "src",
     "types": ["jest", "node"],
     "module": "CommonJS",
+    // Known: pairing with "node16" here technically violates TS5110 under a
+    // direct `tsc -p` run, but ts-jest compiles files individually and never
+    // triggers that diagnostic, so this is harmless as-is. If ts-jest/tests
+    // ever start failing with TS5110, change this to "node10" (see
+    // packages/core/tsconfig.cjs.json for why that pairing is safe).
     "moduleResolution": "node16"
   },
   "include": ["src/**/__tests__/**/*.ts", "src/**/*.test.ts"]
