@@ -9,7 +9,7 @@
 
 import { CogniPipeError, COGNIPIPE_ERROR_CODES } from '@cognipipe/core';
 import type { BaseNode } from '../BaseNode';
-// import type { CogniNodeMeta } from '@cognipipe/types';
+import type { CogniNodeMeta } from '@cognipipe/types';
 
 /** Strict semver — three numeric segments only. No 'v' prefix, no pre-release tag. */
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
@@ -81,6 +81,6 @@ export function CogniNode(options: CogniNodeOptions) {
       );
     }
 
-    target.cogniNodeMeta = { type: options.type, version: options.version };
+    target.cogniNodeMeta = { type: options.type, version: options.version } satisfies CogniNodeMeta;
   };
 }
