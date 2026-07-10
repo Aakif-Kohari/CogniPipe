@@ -3,15 +3,16 @@
  *
  * Public API for the CogniPipe SDK.
  * Provides the BaseNode abstract class that every community-contributed node
- * must extend, plus the NodeConfig type used in its execute() signature.
+ * must extend, the @CogniNode() decorator used to register a node's type and
+ * version metadata, plus the NodeConfig type used in execute()'s signature.
  *
  * @example
  * ```typescript
- * import { BaseNode } from '@cognipipe/sdk';
- * import type { NodeConfig } from '@cognipipe/sdk';
+ * import { BaseNode, CogniNode } from '@cognipipe/sdk';
+ * import type { NodeConfig, CogniNodeOptions } from '@cognipipe/sdk';
  * ```
  */
 export { BaseNode } from './BaseNode';
+export { CogniNode } from './decorators/CogniNode';
+export type { CogniNodeOptions } from './decorators/CogniNode';
 export type { NodeConfig } from '@cognipipe/types';
-
-// @CogniNode() decorator export will be added here in issue #30.
