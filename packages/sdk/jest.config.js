@@ -16,7 +16,4 @@ export default {
       lines: 90,
     },
   },
-  // No test files exist yet (BaseNode/@CogniNode land in #29/#30).
-  // Safe no-op once real __tests__ files are added.
-  passWithNoTests: true,
 };

@@ -13,7 +13,9 @@
  * - `workflow.types` — {@link WorkflowConfig}, {@link StepConfig}, {@link RetryConfig}
  * - `node.types`     — {@link NodeDefinition}, {@link NodeOutput}, {@link NodeConfig}
  * - `context.types`  — {@link IExecutionContext}, {@link StepResult}
+ * - `BaseNode`        — {@link IBaseNode}, {@link CogniNodeMeta}
  */
 export * from './workflow.types';
 export * from './node.types';
 export * from './context.types';
+export * from './BaseNode';
