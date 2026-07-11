@@ -15,9 +15,11 @@
  * - `context.types`  — {@link IExecutionContext}, {@link StepResult}
  * - `BaseNode`        — {@link IBaseNode}, {@link CogniNodeMeta}
  * - `ai-provider.types` — {@link AiProviderConfig}, {@link AiRateLimitPolicy}, {@link AiProviderCapability}
+ * - `ai-node.types`   — {@link AiNodeOutput}, {@link AiExecutionMetadata}
  */
 export * from './workflow.types';
 export * from './node.types';
 export * from './context.types';
 export * from './BaseNode';
 export * from './ai-provider.types';
+export * from './ai-node.types';
