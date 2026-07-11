@@ -399,9 +399,7 @@ describe('WorkflowValidator', () => {
         expect(isCogniPipeError(err)).toBe(true);
         expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.WORKFLOW_VALIDATION_ERROR);
         expect((err as CogniPipeError).message).toContain('"steps[0].dependsOn');
-        expect((err as CogniPipeError).context).toMatchObject({
-          path: expect.stringContaining('steps[0].dependsOn') as unknown as string,
-        });
+        expect(String((err as CogniPipeError).context?.['path'])).toContain('steps[0].dependsOn');
       }
     });
   });
