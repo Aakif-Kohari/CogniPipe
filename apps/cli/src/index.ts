@@ -10,6 +10,7 @@ import { createRequire } from 'node:module';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
+import { realpathSync } from 'node:fs';
 
 const localRequire = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -27,6 +28,6 @@ program
 
 // Only call parse() when executed directly — not when imported in tests.
 // import.meta.url !== process.argv[1] guards against double-parse in jest.
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (process.argv[1] && fileURLToPath(import.meta.url) === realpathSync(process.argv[1])) {
   program.parse(process.argv);
 }

@@ -25,7 +25,6 @@ export default [
         ecmaVersion: 'latest',
         sourceType: 'module',
       },
-      globals: nodeGlobals,
     },
     plugins: {
       '@typescript-eslint': tsPlugin,
@@ -44,6 +43,10 @@ export default [
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       'no-console': 'warn',
     },
+  },
+  {
+    files: ['apps/**/*.ts'],
+    languageOptions: { globals: nodeGlobals },
   },
   {
     files: ['**/__tests__/**/*.{ts,tsx}', '**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}'],
