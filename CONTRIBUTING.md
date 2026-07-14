@@ -175,6 +175,7 @@ cognipipe/
 
 - **TypeScript strict mode** — no `any`, no `!` non-null assertions without comment
 - **Named exports only** — no default exports except in `apps/`
+- **apps/cli tests import with explicit `.ts` extensions** because Jest's ESM mode requires it; this differs from the extensionless convention used in `packages/*`.
 - **Comment intentions, not mechanics** — `// Validates that steps run in dependency order` not `// loops through steps`
 - **Error messages must be actionable** — `throw new Error('Step "fetch" not found. Did you define it before referencing it in "dependsOn"?')`
 - **Environment variables via config** — never hardcode API keys; always read from `process.env`

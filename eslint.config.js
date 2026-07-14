@@ -3,6 +3,18 @@ import tsPlugin from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
 import prettierConfig from 'eslint-config-prettier';
 
+const nodeGlobals = {
+  process: 'readonly',
+  require: 'readonly',
+  module: 'readonly',
+  exports: 'readonly',
+  __dirname: 'readonly',
+  __filename: 'readonly',
+  console: 'readonly',
+  Buffer: 'readonly',
+  global: 'readonly',
+};
+
 export default [
   js.configs.recommended,
   {
@@ -31,6 +43,10 @@ export default [
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       'no-console': 'warn',
     },
+  },
+  {
+    files: ['apps/**/*.ts'],
+    languageOptions: { globals: nodeGlobals },
   },
   {
     files: ['**/__tests__/**/*.{ts,tsx}', '**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}'],
