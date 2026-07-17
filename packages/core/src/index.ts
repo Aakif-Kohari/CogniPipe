@@ -10,6 +10,7 @@
  * import { WorkflowValidator, WorkflowConfigSchema } from '@cognipipe/core';
  * import { ExecutionContext, resolveTemplate, resolveDotPath } from '@cognipipe/core';
  * import { WorkflowParser, SUPPORTED_EXTENSIONS } from '@cognipipe/core';
+ * import { NodeRegistry } from '@cognipipe/core';
  * ```
  *
  * Modules re-exported here:
@@ -20,6 +21,7 @@
  * - `engine/WorkflowParser`  — {@link WorkflowParser}, {@link SUPPORTED_EXTENSIONS}, {@link SupportedExtension}
  * - `engine/ExecutionContext` — {@link ExecutionContext}
  * - `engine/interpolation`    — {@link resolveTemplate}, {@link resolveDotPath}
+ * - `engine/NodeRegistry`     — {@link NodeRegistry}, {@link NodeConstructor}
  */
 export { CogniPipeError, isCogniPipeError } from './errors/CogniPipeError';
 export type { CogniPipeErrorOptions } from './errors/CogniPipeError';
@@ -31,3 +33,5 @@ export { ExecutionContext } from './engine/ExecutionContext';
 export { resolveTemplate, resolveDotPath } from './engine/interpolation';
 export { WorkflowParser, SUPPORTED_EXTENSIONS } from './engine/WorkflowParser';
 export type { SupportedExtension } from './engine/WorkflowParser';
+export { NodeRegistry } from './engine/NodeRegistry';
+export type { NodeConstructor } from './engine/NodeRegistry';
