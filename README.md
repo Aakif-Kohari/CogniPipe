@@ -2,7 +2,7 @@
 
 # CogniPipe
 
-<img src=".github/assets/cognipipe-banner.png" width="800" />
+<img src=".github/assets/cognipipe-banner.png" alt="CogniPipe banner" width="800" />
 
 **Code-first workflow automation engine.**
 Chain AI models, APIs & transforms into type-safe, testable pipelines.
