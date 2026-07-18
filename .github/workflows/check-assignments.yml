@@ -198,7 +198,7 @@ jobs:
                     `To keep your assignment, do **one** of the following:`,
                     `1. 📬 Open a **Draft PR** referencing \`Closes #${issueNum}\` `,
                     `2. 💾 Push a **commit** mentioning \`#${issueNum}\` in the message`,
-                    `3. 💬 Reply here with **"I need an extension"** — we\'re happy to accommodate!`,
+                    `3. 💬 Reply here with **"I need an extension"** — we're happy to accommodate!`,
                     ``,
                     `No response = auto-unassignment at the 48h mark. 🤖`,
                     ``,
