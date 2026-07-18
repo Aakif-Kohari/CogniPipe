@@ -164,18 +164,20 @@ jobs:
 
                 await github.rest.issues.createComment({
                   owner, repo, issue_number: issueNum,
-                  body: `<!-- COGNIPIPE_UNASSIGNED -->
-
-            ⏰ **48-hour deadline reached.**
-
-            @${assignee} has been automatically **unassigned** from this issue. No commit or Draft PR was linked within the 48-hour window, and no extension was requested.
-
-            🔓 This issue is now **open for anyone to claim!**
-            Comment \`.take\` or \`!assign\` below to get started.
-
-            No hard feelings — life happens! Check out other [open issues](../../issues?q=is%3Aissue+is%3Aopen+no%3Aassignee) and jump back in anytime. 💙
-
-            > *Automated action by CogniPipeBot.*`,
+                  body: [
+                    `<!-- COGNIPIPE_UNASSIGNED -->`,
+                    ``,
+                    `⏰ **48-hour deadline reached.**`,
+                    ``,
+                    `@${assignee} has been automatically **unassigned** from this issue. No commit or Draft PR was linked within the 48-hour window, and no extension was requested.`,
+                    ``,
+                    `🔓 This issue is now **open for anyone to claim!**`,
+                    `Comment \`.take\` or \`!assign\` below to get started.`,
+                    ``,
+                    `No hard feelings — life happens! Check out other [open issues](../../issues?q=is%3Aissue+is%3Aopen+no%3Aassignee) and jump back in anytime. 💙`,
+                    ``,
+                    `> *Automated action by CogniPipeBot.*`,
+                  ].join(`\n`),
                 });
 
               // 36h mark: WARNING (only post once)
@@ -186,20 +188,22 @@ jobs:
 
                 await github.rest.issues.createComment({
                   owner, repo, issue_number: issueNum,
-                  body: `<!-- COGNIPIPE_36H_WARNING -->
-
-            ⚠️ **Heads-up, @${assignee}!**
-
-            You have approximately **${remainingHours} hour(s) remaining** before this issue is automatically unassigned.
-
-            To keep your assignment, do **one** of the following:
-            1. 📬 Open a **Draft PR** referencing \`Closes #${issueNum}\`
-            2. 💾 Push a **commit** mentioning \`#${issueNum}\` in the message
-            3. 💬 Reply here with **"I need an extension"** — we're happy to accommodate!
-
-            No response = auto-unassignment at the 48h mark. 🤖
-
-            > *Automated reminder by CogniPipeBot.*`,
+                  body: [
+                    `<!-- COGNIPIPE_36H_WARNING -->`,
+                    ``,
+                    `⚠️ **Heads-up, @${assignee}!**`,
+                    ``,
+                    `You have approximately **${remainingHours} hour(s) remaining** before this issue is automatically unassigned.`,
+                    ``,
+                    `To keep your assignment, do **one** of the following:`,
+                    `1. 📬 Open a **Draft PR** referencing \`Closes #${issueNum}\` `,
+                    `2. 💾 Push a **commit** mentioning \`#${issueNum}\` in the message`,
+                    `3. 💬 Reply here with **"I need an extension"** — we\'re happy to accommodate!`,
+                    ``,
+                    `No response = auto-unassignment at the 48h mark. 🤖`,
+                    ``,
+                    `> *Automated reminder by CogniPipeBot.*`,
+                  ].join(`\n`),
                 });
 
               } else {

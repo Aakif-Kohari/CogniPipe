@@ -131,21 +131,23 @@ jobs:
               owner: context.repo.owner,
               repo:  context.repo.repo,
               issue_number: issueNum,
-              body: `<!-- COGNIPIPE_ASSIGNED_AT:${assignedAt}|ASSIGNEE:${commenter} -->
-
-            👋 Hey @${commenter} — you've been assigned!
-
-            ⏱️ **The 48-Hour Rule**
-            Please link a **commit** or open a **Draft PR** within **48 hours**, or you will be automatically unassigned so another contributor can take over.
-
-            ✅ **What counts as activity:**
-            - Open a Draft PR and reference this issue (\`Closes #${issueNum}\`)
-            - Push a commit with \`#${issueNum}\` in the message
-            - Reply here to **request a time extension** (we're happy to grant one!)
-
-            Good luck, and don't hesitate to ask questions below! 🚀
-
-            > *This message was sent automatically by CogniPipeBot.*`
+              body: [
+                `<!-- COGNIPIPE_ASSIGNED_AT:${assignedAt}|ASSIGNEE:${commenter} -->`,
+                ``,
+                `👋 Hey @${commenter} — you've been assigned!`,
+                ``,
+                `⏱️ **The 48-Hour Rule**`,
+                `Please link a **commit** or open a **Draft PR** within **48 hours**, or you will be automatically unassigned so another contributor can take over.`,
+                ``,
+                `✅ **What counts as activity:**`,
+                `- Open a Draft PR and reference this issue (\`Closes #${issueNum}\`)`,
+                `- Push a commit with \`#${issueNum}\` in the message`,
+                `- Reply here to **request a time extension** (we're happy to grant one!)`,
+                ``,
+                `Good luck, and don't hesitate to ask questions below! 🚀`,
+                ``,
+                `> *This message was sent automatically by CogniPipeBot.*`,
+              ].join(`\n`),
             });
 
       # ─── Case: The Issue is blocked ────────────────────────────────────────
@@ -193,9 +195,11 @@ jobs:
               owner: context.repo.owner,
               repo:  context.repo.repo,
               issue_number: context.issue.number,
-              body: `Hey @${commenter}! 👋
-
-            This issue is currently being worked on by @${currentAssignee}. Under our **48-hour rule**, it may become available again if they don't link a commit or Draft PR in time.
-
-            In the meantime, check out other [open, unassigned issues](../../issues?q=is%3Aissue+is%3Aopen+no%3Aassignee) — there's plenty to work on! 💙`,
+              body: [
+                `Hey @${commenter}! 👋`,
+                ``,
+                `This issue is currently being worked on by @${currentAssignee}. Under our **48-hour rule**, it may become available again if they don't link a commit or Draft PR in time.`,
+                ``,
+                `In the meantime, check out other [open, unassigned issues](../../issues?q=is%3Aissue+is%3Aopen+no%3Aassignee) — there's plenty to work on! 💙`,
+              ].join(`\n`),
             });
