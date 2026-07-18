@@ -1,14 +1,15 @@
 <div align="center">
-  <!-- <img src=".github/assets/cognipipe-banner.png" width="800" /> -->
 
 # CogniPipe
+
+<img src=".github/assets/cognipipe-banner.png" alt="CogniPipe banner" width="1280" />
 
 **Code-first workflow automation engine.**
 Chain AI models, APIs & transforms into type-safe, testable pipelines.
 
 [![CI Status](https://github.com/Aakif-Kohari/CogniPipe/actions/workflows/ci.yml/badge.svg)](https://github.com/Aakif-Kohari/CogniPipe/actions/workflows/ci.yml)
 
-  <!-- [![npm version](https://img.shields.io/npm/v/@cognipipe/core)](...) -->
+<!-- [![npm version](https://img.shields.io/npm/v/@cognipipe/core)](...) -->
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
