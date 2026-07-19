@@ -91,8 +91,11 @@ export interface StepConfig {
   dependsOn?: string[];
   /**
    * When `true`, the workflow continues even if this step throws or returns an error.
-   * The failed step's result is still recorded in the {@link IExecutionContext}.
-   * When omitted, the engine applies its own default (expected: `false`).
+   * The failed step's result is NOT recorded in the {@link IExecutionContext}. Instead,
+   * the error is captured in `WorkflowExecutor`'s `ExecutionResult.stepErrors`
+   * (see `@cognipipe/core`). A downstream step that tries to interpolate the
+   * failed step's output will throw INTERPOLATION_ERROR.
+   * Defaults to `false`.
    */
   continueOnError?: boolean;
   /**
