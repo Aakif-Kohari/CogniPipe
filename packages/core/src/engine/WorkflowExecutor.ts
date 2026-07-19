@@ -24,7 +24,7 @@ import { COGNIPIPE_ERROR_CODES } from '../errors/errorCodes';
 export interface StepError {
   /** The `name` of the step that failed. */
   stepName: string;
-  /** The error thrown by the step's execute() method. */
+  /** The error thrown while running the step (config interpolation, beforeExecute(), or execute()). */
   error: CogniPipeError | Error;
 }
 
@@ -212,15 +212,15 @@ export class WorkflowExecutor {
       // a `Record<string, StepResult>` (see the `ctx.set('steps', ...)` call
       // below) — so any prior value under this key is guaranteed to already
       // have that shape.
-      const priorSteps = ctx.get('steps') as Record<string, unknown> | undefined;
+      const rawPriorSteps = ctx.get('steps');
+      const priorSteps =
+        rawPriorSteps !== null && typeof rawPriorSteps === 'object' && !Array.isArray(rawPriorSteps)
+          ? (rawPriorSteps as Record<string, unknown>)
+          : {};
 
       const nextCtx = ctx.set('steps', {
-        ...(priorSteps ?? {}),
-        [step.name]: {
-          output,
-          completedAt: new Date().toISOString(),
-          durationMs,
-        },
+        ...priorSteps,
+        [step.name]: { output, completedAt: new Date().toISOString(), durationMs },
       });
 
       if (node.afterExecute !== undefined) {
