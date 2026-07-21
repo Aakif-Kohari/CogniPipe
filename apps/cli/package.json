@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Code-first workflow automation engine",
   "engines": {
-    "node": ">=22.0.0",
+    "node": ">=22.12.0",
     "pnpm": ">=9.0.0"
   },
   "bin": {
@@ -24,7 +24,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "commander": "^14.0.3"
+    "commander": "^15.0.0"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
