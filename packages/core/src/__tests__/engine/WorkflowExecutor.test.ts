@@ -505,4 +505,423 @@ describe('WorkflowExecutor', () => {
       expect(steps['b'].output.echoed.list).toEqual(['resolved-x', 'literal']);
     });
   });
+
+  describe('retry behaviour', () => {
+    /** Fails `failCount` times then succeeds. Tracks total call count. */
+    class FlakyNode implements IBaseNode {
+      public calls = 0;
+      constructor(private readonly failCount: number) {}
+      async execute(_config: NodeConfig, _ctx: IExecutionContext): Promise<NodeOutput> {
+        this.calls++;
+        if (this.calls <= this.failCount) {
+          throw new Error(`attempt ${this.calls} failed`);
+        }
+        return { ok: true };
+      }
+    }
+
+    /** Always fails. Tracks total call count. */
+    class AlwaysFailNode implements IBaseNode {
+      public calls = 0;
+      async execute(_config: NodeConfig, _ctx: IExecutionContext): Promise<NodeOutput> {
+        this.calls++;
+        throw new Error('always fails');
+      }
+    }
+
+    it('retries a step that fails twice then succeeds: execute() called 3 times, retryCount === 2', async () => {
+      const registry = new NodeRegistry();
+      let created: FlakyNode | undefined;
+
+      class FlakyFactory implements IBaseNode {
+        readonly #inner: FlakyNode;
+        constructor() {
+          this.#inner = new FlakyNode(2);
+          created = this.#inner;
+        }
+        execute(config: NodeConfig, ctx: IExecutionContext): Promise<NodeOutput> {
+          return this.#inner.execute(config, ctx);
+        }
+      }
+
+      registry.register('@cognipipe/node-flaky', FlakyFactory);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        {
+          name: 'step-a',
+          uses: '@cognipipe/node-flaky',
+          config: {},
+          retry: { attempts: 3, delayMs: 0 },
+        },
+      ]);
+
+      const result = await executor.run(config);
+
+      expect(created?.calls).toBe(3);
+      const steps = result.context.get('steps') as Record<string, { retryCount: number }>;
+      expect(steps['step-a'].retryCount).toBe(2);
+    });
+
+    it('does not retry when retry.attempts is 1: execute() called once, STEP_EXECUTION_FAILED thrown', async () => {
+      const registry = new NodeRegistry();
+      let created: AlwaysFailNode | undefined;
+
+      class AlwaysFailFactory implements IBaseNode {
+        readonly #inner: AlwaysFailNode;
+        constructor() {
+          this.#inner = new AlwaysFailNode();
+          created = this.#inner;
+        }
+        execute(config: NodeConfig, ctx: IExecutionContext): Promise<NodeOutput> {
+          return this.#inner.execute(config, ctx);
+        }
+      }
+
+      registry.register('@cognipipe/node-always-fail', AlwaysFailFactory);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        {
+          name: 'step-a',
+          uses: '@cognipipe/node-always-fail',
+          config: {},
+          retry: { attempts: 1, delayMs: 0 },
+        },
+      ]);
+
+      let thrown: unknown;
+      try {
+        await executor.run(config);
+      } catch (err) {
+        thrown = err;
+      }
+
+      expect(isCogniPipeError(thrown)).toBe(true);
+      expect((thrown as { code: string }).code).toBe(COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED);
+      expect(created?.calls).toBe(1);
+    });
+
+    it('does not retry a step with no retry block at all: execute() called once', async () => {
+      const registry = new NodeRegistry();
+      let created: AlwaysFailNode | undefined;
+
+      class AlwaysFailFactory implements IBaseNode {
+        readonly #inner: AlwaysFailNode;
+        constructor() {
+          this.#inner = new AlwaysFailNode();
+          created = this.#inner;
+        }
+        execute(config: NodeConfig, ctx: IExecutionContext): Promise<NodeOutput> {
+          return this.#inner.execute(config, ctx);
+        }
+      }
+
+      registry.register('@cognipipe/node-always-fail', AlwaysFailFactory);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        { name: 'step-a', uses: '@cognipipe/node-always-fail', config: {} },
+      ]);
+
+      await expect(executor.run(config)).rejects.toThrow();
+      expect(created?.calls).toBe(1);
+    });
+
+    it('succeeds on the first attempt: execute() called once, retryCount === 0', async () => {
+      const registry = new NodeRegistry();
+      registry.register('@cognipipe/node-echo', EchoNode);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        {
+          name: 'step-a',
+          uses: '@cognipipe/node-echo',
+          config: { value: 1 },
+          retry: { attempts: 3, delayMs: 0 },
+        },
+      ]);
+
+      const result = await executor.run(config);
+      const steps = result.context.get('steps') as Record<string, { retryCount: number }>;
+      expect(steps['step-a'].retryCount).toBe(0);
+    });
+
+    it('throws STEP_EXECUTION_FAILED only after all 3 attempts fail, not after the 1st', async () => {
+      const registry = new NodeRegistry();
+      let created: AlwaysFailNode | undefined;
+
+      class AlwaysFailFactory implements IBaseNode {
+        readonly #inner: AlwaysFailNode;
+        constructor() {
+          this.#inner = new AlwaysFailNode();
+          created = this.#inner;
+        }
+        execute(config: NodeConfig, ctx: IExecutionContext): Promise<NodeOutput> {
+          return this.#inner.execute(config, ctx);
+        }
+      }
+
+      registry.register('@cognipipe/node-always-fail', AlwaysFailFactory);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        {
+          name: 'step-a',
+          uses: '@cognipipe/node-always-fail',
+          config: {},
+          retry: { attempts: 3, delayMs: 0 },
+        },
+      ]);
+
+      let thrown: unknown;
+      try {
+        await executor.run(config);
+      } catch (err) {
+        thrown = err;
+      }
+
+      expect(isCogniPipeError(thrown)).toBe(true);
+      expect((thrown as { code: string }).code).toBe(COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED);
+      expect(created?.calls).toBe(3);
+    });
+
+    it('with continueOnError: true, records the error in stepErrors only after all retries are exhausted', async () => {
+      const registry = new NodeRegistry();
+      let created: AlwaysFailNode | undefined;
+
+      class AlwaysFailFactory implements IBaseNode {
+        readonly #inner: AlwaysFailNode;
+        constructor() {
+          this.#inner = new AlwaysFailNode();
+          created = this.#inner;
+        }
+        execute(config: NodeConfig, ctx: IExecutionContext): Promise<NodeOutput> {
+          return this.#inner.execute(config, ctx);
+        }
+      }
+
+      registry.register('@cognipipe/node-always-fail', AlwaysFailFactory);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        {
+          name: 'step-a',
+          uses: '@cognipipe/node-always-fail',
+          config: {},
+          retry: { attempts: 3, delayMs: 0 },
+          continueOnError: true,
+        },
+      ]);
+
+      const result = await executor.run(config);
+
+      expect(result.stepErrors).toHaveLength(1);
+      expect(result.stepErrors[0].stepName).toBe('step-a');
+      expect(created?.calls).toBe(3);
+    });
+
+    it('calls beforeExecute() exactly once even when execute() retries 3 times', async () => {
+      const registry = new NodeRegistry();
+      let created: TrackingNode | undefined;
+
+      class RetryingTrackingFactory implements IBaseNode {
+        readonly #inner: TrackingNode;
+        #calls = 0;
+        constructor() {
+          this.#inner = new TrackingNode();
+          created = this.#inner;
+        }
+        beforeExecute(config: NodeConfig, ctx: IExecutionContext): Promise<void> {
+          return this.#inner.beforeExecute(config, ctx);
+        }
+        async execute(config: NodeConfig, ctx: IExecutionContext): Promise<NodeOutput> {
+          this.#calls++;
+          if (this.#calls < 3) {
+            this.#inner.calls.push('execute');
+            throw new Error('boom');
+          }
+          return this.#inner.execute(config, ctx);
+        }
+      }
+
+      registry.register('@cognipipe/node-retry-track', RetryingTrackingFactory);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        {
+          name: 'step-a',
+          uses: '@cognipipe/node-retry-track',
+          config: {},
+          retry: { attempts: 3, delayMs: 0 },
+        },
+      ]);
+
+      await executor.run(config);
+
+      const beforeExecuteCalls = created?.calls.filter(c => c === 'beforeExecute').length;
+      expect(beforeExecuteCalls).toBe(1);
+    });
+
+    it('interpolates config exactly once even when execute() retries — resolved config reference is identical across attempts', async () => {
+      const registry = new NodeRegistry();
+      const seenConfigs: NodeConfig[] = [];
+
+      class ConfigSpyNode implements IBaseNode {
+        #calls = 0;
+        async execute(config: NodeConfig, _ctx: IExecutionContext): Promise<NodeOutput> {
+          this.#calls++;
+          seenConfigs.push(config);
+          if (this.#calls < 2) {
+            throw new Error('fail once');
+          }
+          return { ok: true };
+        }
+      }
+
+      registry.register('@cognipipe/node-config-spy', ConfigSpyNode);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        {
+          name: 'step-a',
+          uses: '@cognipipe/node-config-spy',
+          config: { value: '{{ trigger.payload }}' },
+          retry: { attempts: 2, delayMs: 0 },
+        },
+      ]);
+
+      await executor.run(config, { trigger: { payload: 'seed' } });
+
+      expect(seenConfigs).toHaveLength(2);
+      expect(seenConfigs[0]).toBe(seenConfigs[1]);
+    });
+
+    it('does not call afterExecute() when all retry attempts fail', async () => {
+      const registry = new NodeRegistry();
+      let created: TrackingFailNode | undefined;
+
+      class RetryingTrackingFailFactory implements IBaseNode {
+        readonly #inner: TrackingFailNode;
+        constructor() {
+          this.#inner = new TrackingFailNode();
+          created = this.#inner;
+        }
+        beforeExecute(config: NodeConfig, ctx: IExecutionContext): Promise<void> {
+          return this.#inner.beforeExecute(config, ctx);
+        }
+        execute(config: NodeConfig, ctx: IExecutionContext): Promise<NodeOutput> {
+          return this.#inner.execute(config, ctx);
+        }
+        afterExecute(output: NodeOutput, ctx: IExecutionContext): Promise<void> {
+          return this.#inner.afterExecute(output, ctx);
+        }
+      }
+
+      registry.register('@cognipipe/node-retry-track-fail', RetryingTrackingFailFactory);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        {
+          name: 'step-a',
+          uses: '@cognipipe/node-retry-track-fail',
+          config: {},
+          retry: { attempts: 3, delayMs: 0 },
+        },
+      ]);
+
+      await expect(executor.run(config)).rejects.toThrow();
+
+      expect(created?.calls.filter(c => c === 'afterExecute')).toHaveLength(0);
+      expect(created?.calls.filter(c => c === 'execute')).toHaveLength(3);
+    });
+  });
+
+  describe('backoff timing', () => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+
+    /** Fails `failCount` times then succeeds. Tracks total call count. */
+    class FlakyNode implements IBaseNode {
+      public calls = 0;
+      constructor(private readonly failCount: number) {}
+      async execute(_config: NodeConfig, _ctx: IExecutionContext): Promise<NodeOutput> {
+        this.calls++;
+        if (this.calls <= this.failCount) {
+          throw new Error(`attempt ${this.calls} failed`);
+        }
+        return { ok: true };
+      }
+    }
+
+    it('waits a constant delayMs between attempts for linear backoff', async () => {
+      const registry = new NodeRegistry();
+      let created: FlakyNode | undefined;
+
+      class FlakyFactory implements IBaseNode {
+        readonly #inner: FlakyNode;
+        constructor() {
+          this.#inner = new FlakyNode(2);
+          created = this.#inner;
+        }
+        execute(config: NodeConfig, ctx: IExecutionContext): Promise<NodeOutput> {
+          return this.#inner.execute(config, ctx);
+        }
+      }
+
+      registry.register('@cognipipe/node-flaky', FlakyFactory);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        {
+          name: 'step-a',
+          uses: '@cognipipe/node-flaky',
+          config: {},
+          retry: { attempts: 3, delayMs: 1000, backoff: 'linear' },
+        },
+      ]);
+
+      const runPromise = executor.run(config);
+      await jest.advanceTimersByTimeAsync(1000);
+      await jest.advanceTimersByTimeAsync(1000);
+      await runPromise;
+
+      expect(created?.calls).toBe(3);
+    });
+
+    it('doubles delayMs on each retry for exponential backoff', async () => {
+      const registry = new NodeRegistry();
+      let created: FlakyNode | undefined;
+
+      class FlakyFactory implements IBaseNode {
+        readonly #inner: FlakyNode;
+        constructor() {
+          this.#inner = new FlakyNode(2);
+          created = this.#inner;
+        }
+        execute(config: NodeConfig, ctx: IExecutionContext): Promise<NodeOutput> {
+          return this.#inner.execute(config, ctx);
+        }
+      }
+
+      registry.register('@cognipipe/node-flaky', FlakyFactory);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        {
+          name: 'step-a',
+          uses: '@cognipipe/node-flaky',
+          config: {},
+          retry: { attempts: 3, delayMs: 1000, backoff: 'exponential' },
+        },
+      ]);
+
+      const runPromise = executor.run(config);
+      await jest.advanceTimersByTimeAsync(1000); // delay after attempt 0: 1000 * 2^0
+      await jest.advanceTimersByTimeAsync(2000); // delay after attempt 1: 1000 * 2^1
+      await runPromise;
+
+      expect(created?.calls).toBe(3);
+    });
+  });
 });
