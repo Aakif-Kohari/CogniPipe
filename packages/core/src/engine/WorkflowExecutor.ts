@@ -99,8 +99,7 @@ function interpolateValue(value: unknown, ctx: ExecutionContext): unknown {
  *
  * @param ms - Milliseconds to wait before resolving.
  */
-const sleep = (ms: number): Promise<void> =>
-  new Promise(resolve => globalThis.setTimeout(resolve, ms));
+const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
  * Computes the delay in milliseconds before the next retry attempt.
@@ -260,6 +259,11 @@ export class WorkflowExecutor {
             // exactly as it did before retry support existed.
             throw attemptErr;
           }
+          // step.retry is guaranteed defined here: this branch only runs
+          // when attemptIndex + 1 < maxAttempts, which is only possible
+          // when maxAttempts > 1 — and maxAttempts defaults to 1 exactly
+          // when step.retry is undefined. So reaching this line implies
+          // step.retry was set.
           const delay = computeBackoffDelay(step.retry!, attemptIndex);
           await sleep(delay);
           attemptIndex++;
