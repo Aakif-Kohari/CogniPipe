@@ -59,4 +59,12 @@ export interface StepResult {
   completedAt: string;
   /** Wall-clock duration of the step execution in milliseconds. */
   durationMs: number;
+  /**
+   * Number of times `execute()` was called before the final outcome.
+   * `0` means the step succeeded on the first attempt (no retries).
+   * `N` means the step failed `N` times before succeeding on attempt `N + 1`.
+   * For a step that exhausts all retries and still fails, this equals
+   * `retry.attempts - 1`.
+   */
+  retryCount: number;
 }

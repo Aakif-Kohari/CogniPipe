@@ -11,7 +11,13 @@
  * (using `StepConfig.dependsOn`) is a separate future issue.
  */
 
-import type { WorkflowConfig, StepConfig, NodeConfig } from '@cognipipe/types';
+import type {
+  WorkflowConfig,
+  StepConfig,
+  NodeConfig,
+  NodeOutput,
+  RetryConfig,
+} from '@cognipipe/types';
 import { ExecutionContext } from './ExecutionContext';
 import { NodeRegistry } from './NodeRegistry';
 import { CogniPipeError } from '../errors/CogniPipeError';
@@ -84,6 +90,37 @@ function interpolateValue(value: unknown, ctx: ExecutionContext): unknown {
 
   // Numbers, booleans, null, undefined — pass through unchanged.
   return value;
+}
+
+/**
+ * Resolves after `ms` milliseconds. Placed at module level (not a class
+ * method) so tests can spy on it or use `jest.useFakeTimers()` to advance
+ * time without waiting on real delays.
+ *
+ * @param ms - Milliseconds to wait before resolving.
+ */
+const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Computes the delay in milliseconds before the next retry attempt.
+ *
+ * Implemented as a module-level function (not a class method) because it
+ * has no dependency on WorkflowExecutor instance state.
+ *
+ * @param retry - The step's retry config. Callers pass `step.retry!` since
+ *   this is only invoked once a retry has already been determined to apply.
+ * @param attemptIndex - Zero-based index of the attempt that just FAILED
+ *   (0 = first attempt failed, 1 = second attempt failed, ...).
+ * @returns The delay in milliseconds before the next attempt.
+ *   For `'linear'` (or omitted) backoff: a constant `retry.delayMs` every time.
+ *   For `'exponential'` backoff: `retry.delayMs * 2 ** attemptIndex`.
+ */
+function computeBackoffDelay(retry: RetryConfig, attemptIndex: number): number {
+  const base = retry.delayMs;
+  if (retry.backoff === 'exponential') {
+    return base * Math.pow(2, attemptIndex);
+  }
+  return base; // 'linear' or undefined — constant delay.
 }
 
 /**
@@ -202,8 +239,36 @@ export class WorkflowExecutor {
         await node.beforeExecute(resolvedConfig, ctx);
       }
 
+      // Retry loop. `maxAttempts` is 1 when `step.retry` is absent, so an
+      // unconfigured step always takes exactly this same single pass —
+      // retry is entirely opt-in. `startTime` is captured before the loop
+      // so `durationMs` below reflects total wall-clock time across every
+      // attempt plus every inter-attempt delay, not just the final attempt.
       const startTime = Date.now();
-      const output = await node.execute(resolvedConfig, ctx);
+      const maxAttempts = step.retry?.attempts ?? 1;
+      let attemptIndex = 0;
+      let output: NodeOutput;
+      while (true) {
+        try {
+          output = await node.execute(resolvedConfig, ctx);
+          break;
+        } catch (attemptErr) {
+          if (attemptIndex + 1 >= maxAttempts) {
+            // Retries exhausted (or none configured) — rethrow so the
+            // outer catch below handles continueOnError / STEP_EXECUTION_FAILED
+            // exactly as it did before retry support existed.
+            throw attemptErr;
+          }
+          // step.retry is guaranteed defined here: this branch only runs
+          // when attemptIndex + 1 < maxAttempts, which is only possible
+          // when maxAttempts > 1 — and maxAttempts defaults to 1 exactly
+          // when step.retry is undefined. So reaching this line implies
+          // step.retry was set.
+          const delay = computeBackoffDelay(step.retry!, attemptIndex);
+          await sleep(delay);
+          attemptIndex++;
+        }
+      }
       const durationMs = Date.now() - startTime;
 
       // `ctx.get('steps')` is typed `unknown` because ExecutionContext's store
@@ -220,7 +285,12 @@ export class WorkflowExecutor {
 
       const nextCtx = ctx.set('steps', {
         ...priorSteps,
-        [step.name]: { output, completedAt: new Date().toISOString(), durationMs },
+        [step.name]: {
+          output,
+          completedAt: new Date().toISOString(),
+          durationMs,
+          retryCount: attemptIndex,
+        },
       });
 
       if (node.afterExecute !== undefined) {

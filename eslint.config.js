@@ -15,6 +15,21 @@ const nodeGlobals = {
   global: 'readonly',
 };
 
+// packages/* are ESM-only by convention (see CONTRIBUTING.md) — this globals
+// set intentionally excludes require/module/exports/__dirname/__filename so
+// ESLint still flags accidental CJS syntax. apps/** (the CLI) is allowed the
+// full CJS-compatible set since it has different runtime constraints.
+const nodeRuntimeGlobals = {
+  process: 'readonly',
+  console: 'readonly',
+  Buffer: 'readonly',
+  setTimeout: 'readonly',
+  clearTimeout: 'readonly',
+  setInterval: 'readonly',
+  clearInterval: 'readonly',
+  queueMicrotask: 'readonly',
+};
+
 export default [
   js.configs.recommended,
   {
@@ -47,6 +62,10 @@ export default [
   {
     files: ['apps/**/*.ts'],
     languageOptions: { globals: nodeGlobals },
+  },
+  {
+    files: ['packages/*/src/**/*.ts'],
+    languageOptions: { globals: nodeRuntimeGlobals },
   },
   {
     files: ['**/__tests__/**/*.{ts,tsx}', '**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}'],
