@@ -78,7 +78,7 @@ Request headers as key-value pairs. Supports interpolation with `{{ }}` syntax.
 ```yaml
 config:
   headers:
-    Authorization: 'Bearer {{ env.API_TOKEN }}'
+    Authorization: 'Bearer {{ steps.get-token.output.token }}'
     Content-Type: 'application/json'
     X-Custom-Header: 'custom-value'
 ```
@@ -92,7 +92,7 @@ Request body. Ignored for GET and DELETE requests. Supports interpolation.
 ```yaml
 config:
   method: POST
-  body: '{"name":"{{ upstream_step.name }}","active":true}'
+  body: '{"name":"{{ steps.upstream-step.output.name }}","active":true}'
 ```
 
 ### `timeout` (optional)
