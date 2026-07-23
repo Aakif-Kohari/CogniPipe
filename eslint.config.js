@@ -68,6 +68,22 @@ export default [
     languageOptions: { globals: nodeRuntimeGlobals },
   },
   {
+    files: ['nodes/*/src/**/*.ts', 'nodes/*/__tests__/**/*.ts', 'nodes/*/**/*.test.ts'],
+    languageOptions: {
+      globals: {
+        ...nodeRuntimeGlobals,
+        global: 'readonly',
+        fetch: 'readonly',
+        AbortController: 'readonly',
+        DOMException: 'readonly',
+        Headers: 'readonly',
+        Response: 'readonly',
+        Request: 'readonly',
+        RequestInit: 'readonly',
+      },
+    },
+  },
+  {
     files: ['**/__tests__/**/*.{ts,tsx}', '**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}'],
     languageOptions: {
       globals: {
