@@ -293,20 +293,17 @@ describe('HttpNode', () => {
   });
 
   describe('happy path: timeout defaults', () => {
-    it('should use default timeout of 5000ms when omitted', async () => {
+    it('should use a default timeout of 5000ms when omitted from config', async () => {
       const mockResp = mockResponse();
       mockFetch.mockResolvedValueOnce(mockResp);
 
-      jest.useFakeTimers();
+      const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
+
       const node = new HttpNode();
-      const promise = node.execute({ url: 'https://api.example.com/data' }, mockContext);
+      await node.execute({ url: 'https://api.example.com/data' }, mockContext);
 
-      jest.runAllTimers();
-      jest.useRealTimers();
-      await promise;
-
-      // Verify that fetch was called (timeout didn't abort)
-      expect(mockFetch).toHaveBeenCalled();
+      expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 5000);
+      setTimeoutSpy.mockRestore();
     });
   });
 
