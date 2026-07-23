@@ -30,10 +30,16 @@ steps:
       method: POST
       headers:
         Content-Type: 'application/json'
-        Authorization: 'Bearer {{ env.API_TOKEN }}'
+        Authorization: 'Bearer {{ steps.get-token.output.token }}'
       body: '{"title":"Hello","content":"World"}'
       timeout: 15000
 ```
+
+> **Note:** `node-http` does not currently read environment variables directly.
+> If you need to inject a secret, either interpolate it from an upstream step's
+> output (as shown above), or wait for a future node/feature that supports
+> reading `process.env` directly (see `AiProviderConfig.apiKeyEnv` for the
+> pattern used by AI provider nodes).
 
 ## Configuration
 
@@ -143,7 +149,7 @@ steps:
   - name: log-result
     uses: '@cognipipe/node-log'
     config:
-      message: 'Status: {{ fetch-data.status }} — Body: {{ fetch-data.body }}'
+      message: 'Status: {{ steps.fetch-data.output.status }} — Body: {{ steps.fetch-data.output.body }}'
 ```
 
 ## Error Handling

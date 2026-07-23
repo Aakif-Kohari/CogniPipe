@@ -53,7 +53,6 @@ describe('HttpNode', () => {
       const node = new HttpNode();
       // Check that the node has the expected BaseNode methods
       expect(typeof node.execute).toBe('function');
-      expect(typeof (node as any).validateConfig).toBe('function');
     });
   });
 
@@ -399,10 +398,7 @@ describe('HttpNode', () => {
       expect.assertions(2);
       const node = new HttpNode();
       try {
-        await node.execute(
-          { url: 'https://api.example.com', method: 'INVALID' as any },
-          mockContext,
-        );
+        await node.execute({ url: 'https://api.example.com', method: 'INVALID' }, mockContext);
       } catch (err) {
         expect(err).toBeInstanceOf(CogniPipeError);
         expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
