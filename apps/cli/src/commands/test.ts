@@ -15,7 +15,7 @@
  *   6. Print the execution order (topological sort)
  */
 import { Command } from 'commander';
-import { detectCycles, topologicalSort, validateDependsOnReferences } from '../validation/dag';
+import { detectCycles, topologicalSort, validateDependsOnReferences } from '../validation/dag.js';
 import type { WorkflowConfig } from '@cognipipe/types';
 
 /** Width of the check-name column before the ✅/❌ icon. Matches the spec's sample output. */

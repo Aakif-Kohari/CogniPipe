@@ -11,7 +11,7 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
 import { realpathSync } from 'node:fs';
-import { createTestCommand } from './commands/test';
+import { createTestCommand } from './commands/test.js';
 
 const localRequire = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
