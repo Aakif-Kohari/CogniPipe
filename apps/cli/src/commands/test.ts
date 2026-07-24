@@ -16,6 +16,7 @@
  */
 import { Command } from 'commander';
 import { detectCycles, topologicalSort, validateDependsOnReferences } from '../validation/dag';
+import type { WorkflowConfig } from '@cognipipe/types';
 
 /** Width of the check-name column before the ✅/❌ icon. Matches the spec's sample output. */
 const LABEL_WIDTH = 18;
@@ -62,7 +63,7 @@ async function runTest(workflowFilePath: string): Promise<number> {
 
   // Checks 1 + 2: parse and validate structure. Reported as a single "Structure" row —
   // the sample output in the issue only shows one such row for both.
-  let config: Awaited<ReturnType<typeof loadConfig>>;
+  let config: WorkflowConfig;
   try {
     config = await loadConfig(workflowFilePath, core);
   } catch (err) {
@@ -110,7 +111,12 @@ async function runTest(workflowFilePath: string): Promise<number> {
   for (const step of config.steps) {
     let available = true;
     try {
-      await import(step.uses);
+      // Use import.meta.resolve() rather than import() — this only resolves
+      // the specifier to a URL without loading or executing the module. A
+      // full import() would run the node package's top-level code (including
+      // any @CogniNode() decorator side effects), which would contradict
+      // this command's "no execution" guarantee for untrusted workflow files.
+      import.meta.resolve(step.uses);
     } catch {
       available = false;
     }
