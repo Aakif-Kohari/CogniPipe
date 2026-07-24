@@ -81,9 +81,11 @@ async function runTest(workflowFilePath: string): Promise<number> {
   const refErrors = validateDependsOnReferences(config.steps);
   if (refErrors.length === 0) {
     const refCount = config.steps.reduce((sum, step) => sum + (step.dependsOn?.length ?? 0), 0);
-    const noun = refCount === 1 ? 'reference' : 'references';
-    const verb = refCount === 1 ? 'resolves' : 'resolve';
-    console.log(formatRow('dependsOn refs', true, `All ${refCount} ${noun} ${verb}`));
+    const message =
+      refCount === 0
+        ? 'No dependsOn references to check'
+        : `All ${refCount} ${refCount === 1 ? 'reference' : 'references'} ${refCount === 1 ? 'resolves' : 'resolve'}`;
+    console.log(formatRow('dependsOn refs', true, message));
   } else {
     const noun = refErrors.length === 1 ? 'reference' : 'references';
     console.log(formatRow('dependsOn refs', false, `${refErrors.length} invalid ${noun}`));
