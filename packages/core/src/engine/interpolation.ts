@@ -7,8 +7,8 @@
  */
 
 import type { IExecutionContext } from '@cognipipe/types';
-import { CogniPipeError } from '../errors/CogniPipeError';
-import { COGNIPIPE_ERROR_CODES } from '../errors/errorCodes';
+import { CogniPipeError } from '../errors/CogniPipeError.js';
+import { COGNIPIPE_ERROR_CODES } from '../errors/errorCodes.js';
 
 /**
  * Matches `{{ expression }}` tokens, capturing the raw inner content.

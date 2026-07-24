@@ -9,7 +9,7 @@
  */
 
 import type { IExecutionContext } from '@cognipipe/types';
-import { resolveTemplate } from './interpolation';
+import { resolveTemplate } from './interpolation.js';
 
 /**
  * Immutable key-value store that carries data between workflow steps.

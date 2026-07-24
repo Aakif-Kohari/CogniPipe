@@ -5,7 +5,7 @@
  * along with a type guard for safe programmatic error handling.
  */
 
-import type { CogniPipeErrorCode } from './errorCodes';
+import type { CogniPipeErrorCode } from './errorCodes.js';
 
 /**
  * Options passed to the {@link CogniPipeError} constructor.

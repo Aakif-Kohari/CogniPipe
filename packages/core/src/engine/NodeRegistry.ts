@@ -7,8 +7,8 @@
  */
 
 import type { IBaseNode } from '@cognipipe/types';
-import { CogniPipeError } from '../errors/CogniPipeError';
-import { COGNIPIPE_ERROR_CODES } from '../errors/errorCodes';
+import { CogniPipeError } from '../errors/CogniPipeError.js';
+import { COGNIPIPE_ERROR_CODES } from '../errors/errorCodes.js';
 
 /**
  * A class constructor that produces an IBaseNode instance.

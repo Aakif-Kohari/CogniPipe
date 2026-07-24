@@ -19,8 +19,8 @@
 import { readFile } from 'node:fs/promises';
 import { extname } from 'node:path';
 import { load as loadYAML } from 'js-yaml';
-import { CogniPipeError } from '../errors/CogniPipeError';
-import { COGNIPIPE_ERROR_CODES } from '../errors/errorCodes';
+import { CogniPipeError } from '../errors/CogniPipeError.js';
+import { COGNIPIPE_ERROR_CODES } from '../errors/errorCodes.js';
 
 /** File extensions accepted by WorkflowParser.parseFile(). */
 export const SUPPORTED_EXTENSIONS = ['.yaml', '.yml', '.json'] as const;

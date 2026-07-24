@@ -18,10 +18,10 @@ import type {
   NodeOutput,
   RetryConfig,
 } from '@cognipipe/types';
-import { ExecutionContext } from './ExecutionContext';
-import { NodeRegistry } from './NodeRegistry';
-import { CogniPipeError } from '../errors/CogniPipeError';
-import { COGNIPIPE_ERROR_CODES } from '../errors/errorCodes';
+import { ExecutionContext } from './ExecutionContext.js';
+import { NodeRegistry } from './NodeRegistry.js';
+import { CogniPipeError } from '../errors/CogniPipeError.js';
+import { COGNIPIPE_ERROR_CODES } from '../errors/errorCodes.js';
 
 /**
  * Details of a step that failed but was allowed to continue because
