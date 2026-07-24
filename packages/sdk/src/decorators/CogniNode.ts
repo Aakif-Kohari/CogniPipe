@@ -8,7 +8,7 @@
  */
 
 import { CogniPipeError, COGNIPIPE_ERROR_CODES } from '@cognipipe/core';
-import type { BaseNode } from '../BaseNode';
+import type { BaseNode } from '../BaseNode.js';
 import type { CogniNodeMeta } from '@cognipipe/types';
 
 /** Strict semver — three numeric segments only. No 'v' prefix, no pre-release tag. */
