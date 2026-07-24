@@ -17,9 +17,9 @@
  * - `ai-provider.types` — {@link AiProviderConfig}, {@link AiRateLimitPolicy}, {@link AiProviderCapability}
  * - `ai-node.types`   — {@link AiNodeOutput}, {@link AiExecutionMetadata}
  */
-export * from './workflow.types';
-export * from './node.types';
-export * from './context.types';
-export * from './BaseNode';
-export * from './ai-provider.types';
-export * from './ai-node.types';
+export * from './workflow.types.js';
+export * from './node.types.js';
+export * from './context.types.js';
+export * from './BaseNode.js';
+export * from './ai-provider.types.js';
+export * from './ai-node.types.js';

@@ -14,7 +14,7 @@
  * monitoring, cost tracking, and debugging.
  */
 
-import type { NodeOutput } from './node.types';
+import type { NodeOutput } from './node.types.js';
 
 /**
  * Execution metadata produced by every successful AI node run.
