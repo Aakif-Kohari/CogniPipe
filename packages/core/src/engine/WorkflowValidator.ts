@@ -8,9 +8,9 @@
  */
 
 import type { WorkflowConfig } from '@cognipipe/types';
-import { CogniPipeError } from '../errors/CogniPipeError';
-import { COGNIPIPE_ERROR_CODES } from '../errors/errorCodes';
-import { WorkflowConfigSchema } from './schemas';
+import { CogniPipeError } from '../errors/CogniPipeError.js';
+import { COGNIPIPE_ERROR_CODES } from '../errors/errorCodes.js';
+import { WorkflowConfigSchema } from './schemas.js';
 
 /**
  * Validates raw parsed YAML/JSON against the WorkflowConfig schema.

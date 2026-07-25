@@ -5,5 +5,5 @@
  * Supports GET, POST, PUT, DELETE, PATCH with headers, body, and timeout configuration.
  */
 
-export { HttpNode } from './HttpNode';
-export type { HttpNodeOutput } from './HttpNode';
+export { HttpNode } from './HttpNode.js';
+export type { HttpNodeOutput } from './HttpNode.js';

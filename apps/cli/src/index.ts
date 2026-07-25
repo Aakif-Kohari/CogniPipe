@@ -11,6 +11,7 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
 import { realpathSync } from 'node:fs';
+import { createTestCommand } from './commands/test.js';
 
 const localRequire = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -25,6 +26,8 @@ program
   .name('cognipipe')
   .description('Code-first workflow automation engine')
   .version(version, '-v, --version', 'Output the current version and exit');
+
+program.addCommand(createTestCommand());
 
 // Only call parse() when executed directly — not when imported in tests.
 // import.meta.url !== process.argv[1] guards against double-parse in jest.

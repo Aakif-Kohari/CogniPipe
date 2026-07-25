@@ -12,7 +12,7 @@
  * import type { NodeConfig, CogniNodeOptions } from '@cognipipe/sdk';
  * ```
  */
-export { BaseNode } from './BaseNode';
-export { CogniNode } from './decorators/CogniNode';
-export type { CogniNodeOptions } from './decorators/CogniNode';
+export { BaseNode } from './BaseNode.js';
+export { CogniNode } from './decorators/CogniNode.js';
+export type { CogniNodeOptions } from './decorators/CogniNode.js';
 export type { NodeConfig } from '@cognipipe/types';

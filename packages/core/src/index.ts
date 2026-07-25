@@ -25,17 +25,17 @@
  * - `engine/NodeRegistry`     — {@link NodeRegistry}, {@link NodeConstructor}
  * - `engine/WorkflowExecutor` — {@link WorkflowExecutor}, {@link ExecutionResult}, {@link StepError}
  */
-export { CogniPipeError, isCogniPipeError } from './errors/CogniPipeError';
-export type { CogniPipeErrorOptions } from './errors/CogniPipeError';
-export { COGNIPIPE_ERROR_CODES } from './errors/errorCodes';
-export type { CogniPipeErrorCode } from './errors/errorCodes';
-export { WorkflowValidator } from './engine/WorkflowValidator';
-export { WorkflowConfigSchema, StepConfigSchema, RetryConfigSchema } from './engine/schemas';
-export { ExecutionContext } from './engine/ExecutionContext';
-export { resolveTemplate, resolveDotPath } from './engine/interpolation';
-export { WorkflowParser, SUPPORTED_EXTENSIONS } from './engine/WorkflowParser';
-export type { SupportedExtension } from './engine/WorkflowParser';
-export { NodeRegistry } from './engine/NodeRegistry';
-export type { NodeConstructor } from './engine/NodeRegistry';
-export { WorkflowExecutor } from './engine/WorkflowExecutor';
-export type { ExecutionResult, StepError } from './engine/WorkflowExecutor';
+export { CogniPipeError, isCogniPipeError } from './errors/CogniPipeError.js';
+export type { CogniPipeErrorOptions } from './errors/CogniPipeError.js';
+export { COGNIPIPE_ERROR_CODES } from './errors/errorCodes.js';
+export type { CogniPipeErrorCode } from './errors/errorCodes.js';
+export { WorkflowValidator } from './engine/WorkflowValidator.js';
+export { WorkflowConfigSchema, StepConfigSchema, RetryConfigSchema } from './engine/schemas.js';
+export { ExecutionContext } from './engine/ExecutionContext.js';
+export { resolveTemplate, resolveDotPath } from './engine/interpolation.js';
+export { WorkflowParser, SUPPORTED_EXTENSIONS } from './engine/WorkflowParser.js';
+export type { SupportedExtension } from './engine/WorkflowParser.js';
+export { NodeRegistry } from './engine/NodeRegistry.js';
+export type { NodeConstructor } from './engine/NodeRegistry.js';
+export { WorkflowExecutor } from './engine/WorkflowExecutor.js';
+export type { ExecutionResult, StepError } from './engine/WorkflowExecutor.js';

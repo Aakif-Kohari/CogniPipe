@@ -7,8 +7,8 @@
  * circular dependency: types ← core ← sdk ← core).
  */
 
-import type { IExecutionContext } from './context.types';
-import type { NodeConfig, NodeOutput } from './node.types';
+import type { IExecutionContext } from './context.types.js';
+import type { NodeConfig, NodeOutput } from './node.types.js';
 
 /**
  * Metadata attached to a BaseNode subclass by the @CogniNode() decorator.
