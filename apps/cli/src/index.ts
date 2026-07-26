@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
 import { realpathSync } from 'node:fs';
 import { createTestCommand } from './commands/test.js';
+import { createRunCommand } from './commands/run.js';
 
 const localRequire = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -28,6 +29,7 @@ program
   .version(version, '-v, --version', 'Output the current version and exit');
 
 program.addCommand(createTestCommand());
+program.addCommand(createRunCommand());
 
 // Only call parse() when executed directly — not when imported in tests.
 // import.meta.url !== process.argv[1] guards against double-parse in jest.

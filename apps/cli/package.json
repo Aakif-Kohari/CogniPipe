@@ -24,11 +24,11 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "commander": "^15.0.0"
+    "commander": "^15.0.0",
+    "@cognipipe/core": "workspace:*",
+    "@cognipipe/types": "workspace:*"
   },
   "devDependencies": {
-    "@cognipipe/core": "workspace:*",
-    "@cognipipe/types": "workspace:*",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.1.1",
     "cross-env": "^10.1.0",
