@@ -43,15 +43,23 @@ async function discoverAndRegisterNodes(uses: string[], registry: NodeRegistry):
       continue;
     }
 
-    for (const exported of Object.values(mod)) {
-      if (
+    const matches = Object.values(mod).filter(
+      (exported): exported is NodeConstructor =>
         typeof exported === 'function' &&
         'cogniNodeMeta' in exported &&
-        (exported as { cogniNodeMeta?: { type: string } }).cogniNodeMeta?.type === packageName
-      ) {
-        registry.register(packageName, exported as unknown as NodeConstructor);
-        break;
-      }
+        (exported as { cogniNodeMeta?: { type: string } }).cogniNodeMeta?.type === packageName,
+    );
+
+    if (matches.length > 1) {
+      // Ambiguous — the package exports more than one class decorated with the
+      // same cogniNodeMeta.type. Don't silently pick one; skip registration
+      // entirely so NodeRegistry's upfront pass throws NODE_NOT_REGISTERED with
+      // an actionable message, same as an uninstalled package.
+      continue;
+    }
+
+    if (matches[0]) {
+      registry.register(packageName, matches[0]);
     }
   }
 }
