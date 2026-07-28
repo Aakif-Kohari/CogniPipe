@@ -1,0 +1,20 @@
+# examples/hello-world/workflow.yaml
+
+name: hello-world
+version: '1.0.0'
+description: Fetches a public cat fact from an API and logs the result.
+
+steps:
+  - name: fetch-fact
+    uses: '@cognipipe/node-http'
+    config:
+      url: 'https://catfact.ninja/fact'
+      method: GET
+
+  - name: log-result
+    uses: '@cognipipe/node-transform'
+    dependsOn: ['fetch-fact']
+    config:
+      operation: pick
+      input: '{{ steps.fetch-fact.output.body }}'
+      fields: ['fact', 'length']
