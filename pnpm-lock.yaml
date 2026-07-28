@@ -55,16 +55,16 @@ importers:
 
   apps/cli:
     dependencies:
-      commander:
-        specifier: ^15.0.0
-        version: 15.0.0
-    devDependencies:
       '@cognipipe/core':
         specifier: workspace:*
         version: link:../../packages/core
       '@cognipipe/types':
         specifier: workspace:*
         version: link:../../packages/types
+      commander:
+        specifier: ^15.0.0
+        version: 15.0.0
+    devDependencies:
       '@types/jest':
         specifier: ^30.0.0
         version: 30.0.0
