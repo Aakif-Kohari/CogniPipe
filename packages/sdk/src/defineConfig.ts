@@ -99,6 +99,11 @@ export function defineConfig<T>(schema: ZodType<T>): ConfigDefinition<T> {
           raw,
         );
 
+        // Deviates slightly from the issue's literal template: context.path stays the
+        // raw formatted path string (empty string for root-level failures), while the
+        // "(root)" label is used only in the human-readable message. This keeps
+        // context.path machine-parseable/consistent for any future programmatic
+        // consumer, rather than conflating it with the display string.
         const pathLabel = path.length > 0 ? `"${path}"` : '"(root)"';
 
         throw new CogniPipeError(
