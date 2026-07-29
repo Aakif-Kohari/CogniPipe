@@ -15,11 +15,16 @@ interpolation expression reading one step's output from the next.
 
 ## How to run
 
-> ⚠️ **This workflow cannot be executed end-to-end yet.** The `cognipipe run`
-> command is not implemented, and the node packages are not published to npm.
-> This example exists to demonstrate the **intended `workflow.yaml` syntax** and
-> to give node implementers a concrete reference scenario — not to provide a
-> runnable CLI command today.
+> ⚠️ **This workflow cannot be executed end-to-end yet — not because
+> `cognipipe run` doesn't exist, but because neither node package it depends on
+> is resolvable from the CLI's runtime context.** `cognipipe run` dynamically
+> imports each step's `uses` package at execution time; since neither
+> `@cognipipe/node-http` nor `@cognipipe/node-transform` is installed as a
+> dependency of a project that also has `cognipipe` installed, the import fails
+> and `run` reports `NODE_NOT_REGISTERED` — the same reason `cognipipe test`'s
+> node availability check shows ❌ below. This example exists to demonstrate
+> the intended `workflow.yaml` syntax and give node implementers a concrete
+> reference scenario.
 
 The `cognipipe test <workflow-file>` command validates a workflow and previews
 its execution order **without executing any nodes**. From the repo root, after
