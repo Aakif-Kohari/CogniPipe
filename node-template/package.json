@@ -33,5 +33,6 @@
     "ts-jest": "^29.2.5",
     "typescript": "^5.7.2"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "private": true
 }

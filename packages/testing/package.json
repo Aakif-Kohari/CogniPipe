@@ -12,5 +12,6 @@
     "type": "git",
     "url": "https://github.com/Aakif-Kohari/CogniPipe.git",
     "directory": "packages/testing"
-  }
+  },
+  "private": true
 }

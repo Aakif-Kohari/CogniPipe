@@ -41,5 +41,11 @@
     "type": "git",
     "url": "https://github.com/Aakif-Kohari/CogniPipe.git",
     "directory": "packages/core"
-  }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ]
 }

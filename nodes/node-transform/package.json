@@ -12,5 +12,6 @@
     "type": "git",
     "url": "https://github.com/Aakif-Kohari/CogniPipe.git",
     "directory": "nodes/node-transform"
-  }
+  },
+  "private": true
 }

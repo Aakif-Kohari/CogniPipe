@@ -24,9 +24,12 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '22.14.0'
           cache: 'pnpm'
           registry-url: 'https://registry.npmjs.org'
+
+      - name: Force npm CLI to a version with correct OIDC fallback behavior
+        run: npm install -g npm@latest
 
       - run: pnpm install --frozen-lockfile
 
@@ -41,4 +44,4 @@ jobs:
           commit: 'chore: release packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # NOTE: NO NODE_AUTH_TOKEN or NPM_TOKEN here. OIDC handles it.
