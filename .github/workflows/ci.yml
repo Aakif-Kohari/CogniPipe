@@ -18,7 +18,7 @@ concurrency:
 
 env:
   NODE_VERSION: '22.14.0'
-  PNPM_VERSION: '9'
+  PNPM_VERSION: '10.34.5'
 
 jobs:
   # ── Job 1: Lint & Format ───────────────────────────────────────────────────
@@ -42,6 +42,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Verify pnpm version
+        run: pnpm --version
 
       - name: Check Prettier formatting
         run: pnpm format:check

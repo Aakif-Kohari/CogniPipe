@@ -3,8 +3,8 @@
   "version": "0.0.1",
   "type": "module",
   "engines": {
-    "node": ">=22.0.0",
-    "pnpm": ">=9.0.0"
+    "node": ">=22.14.0",
+    "pnpm": ">=10.0.0"
   },
   "description": "CogniPipe node for CHANGEME",
   "main": "./dist/index.js",
