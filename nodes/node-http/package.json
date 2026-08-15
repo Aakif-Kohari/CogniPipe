@@ -22,7 +22,7 @@
     }
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && tsc -p tsconfig.cjs.json && node scripts/postbuild-cjs.js",
     "test": "jest --coverage",
     "type-check": "tsc --noEmit",
     "lint": "eslint src/",
