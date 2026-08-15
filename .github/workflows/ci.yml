@@ -17,8 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: '22'
-  PNPM_VERSION: '9'
+  NODE_VERSION: '22.14.0'
 
 jobs:
   # ── Job 1: Lint & Format ───────────────────────────────────────────────────

@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "type": "module",
   "engines": {
-    "node": ">=22.0.0",
-    "pnpm": ">=9.0.0"
+    "node": ">=22.14.0",
+    "pnpm": ">=10.0.0"
   },
   "description": "Core workflow execution engine for CogniPipe",
   "main": "./dist/cjs/index.js",
@@ -41,5 +41,12 @@
     "type": "git",
     "url": "https://github.com/Aakif-Kohari/CogniPipe.git",
     "directory": "packages/core"
-  }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "files": [
+    "dist"
+  ]
 }
