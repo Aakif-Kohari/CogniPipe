@@ -7,7 +7,14 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": [],
+  "ignore": [
+    "@cognipipe/node-anthropic",
+    "@cognipipe/node-transform",
+    "@cognipipe/node-github",
+    "@cognipipe/node-openai",
+    "@cognipipe/node-slack",
+    "@cognipipe/testing"
+  ],
   "___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {
     "onlyUpdatePeerDependentsWhenOutOfRange": true
   }

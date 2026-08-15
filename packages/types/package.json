@@ -27,7 +27,8 @@
     "directory": "packages/types"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "files": [
     "dist"

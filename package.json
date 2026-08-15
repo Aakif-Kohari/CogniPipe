@@ -52,5 +52,10 @@
   "homepage": "https://github.com/Aakif-Kohari/CogniPipe#readme",
   "bugs": {
     "url": "https://github.com/Aakif-Kohari/CogniPipe/issues"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "unrs-resolver"
+    ]
   }
 }
