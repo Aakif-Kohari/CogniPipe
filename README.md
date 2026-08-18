@@ -9,7 +9,8 @@ Chain AI models, APIs & transforms into type-safe, testable pipelines.
 
 [![CI Status](https://github.com/Aakif-Kohari/CogniPipe/actions/workflows/ci.yml/badge.svg)](https://github.com/Aakif-Kohari/CogniPipe/actions/workflows/ci.yml)
 
-<!-- [![npm version](https://img.shields.io/npm/v/@cognipipe/core)](...) -->
+[![npm version](https://img.shields.io/npm/v/@cognipipe/core)](https://www.npmjs.com/package/@cognipipe/core)
+[![npm version](https://img.shields.io/npm/v/cognipipe)](https://www.npmjs.com/package/cognipipe)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -57,6 +58,7 @@ steps:
 
 ```bash
 cognipipe run workflow.yaml
+cognipipe test workflow.yaml
 ```
 
 ---
@@ -75,8 +77,9 @@ graph LR
   Executor <--> Context["ExecutionContext"]
 ```
 
-The **core engine** handles parsing, validation, execution, and context management.
-**Nodes** are independently versioned npm packages — community contributed, individually tested.
+The **core engine** handles parsing, validation, execution, and context management.  
+_(Note: `@cognipipe/core`, `@cognipipe/sdk`, `@cognipipe/types`, and `@cognipipe/node-http` are all published to npm and ready to use)._  
+**Nodes** are independently versioned npm packages — community contributed and individually tested.
 
 ---
 
@@ -113,14 +116,16 @@ cognipipe run workflow.yaml
 
 ## Available Nodes
 
-| Node         | Package                     | Description                                        |
-| ------------ | --------------------------- | -------------------------------------------------- |
-| HTTP Request | `@cognipipe/node-http`      | Generic HTTP calls — GET, POST, PUT, DELETE        |
-| OpenAI       | `@cognipipe/node-openai`    | ChatCompletion, Embeddings (gpt-4o, gpt-3.5-turbo) |
-| Anthropic    | `@cognipipe/node-anthropic` | Claude API (claude-3-5-sonnet, claude-3-haiku)     |
-| Slack        | `@cognipipe/node-slack`     | Send messages, post to channels                    |
-| GitHub       | `@cognipipe/node-github`    | Issues, PRs, repos, webhooks                       |
-| Transform    | `@cognipipe/node-transform` | JSON, CSV, text operations                         |
+| Node         | Package                     | Status       | Description                                        |
+| ------------ | --------------------------- | ------------ | -------------------------------------------------- |
+| HTTP Request | `@cognipipe/node-http`      | ✅ Published | Generic HTTP calls — GET, POST, PUT, DELETE        |
+| OpenAI       | `@cognipipe/node-openai`    | 🚧 Stub      | ChatCompletion, Embeddings (gpt-4o, gpt-3.5-turbo) |
+| Anthropic    | `@cognipipe/node-anthropic` | 🚧 Stub      | Claude API (claude-3-5-sonnet, claude-3-haiku)     |
+| Slack        | `@cognipipe/node-slack`     | 🚧 Stub      | Send messages, post to channels                    |
+| GitHub       | `@cognipipe/node-github`    | 🚧 Stub      | Issues, PRs, repos, webhooks                       |
+| Transform    | `@cognipipe/node-transform` | 🚧 Stub      | JSON, CSV, text operations                         |
+
+> **Note:** `@cognipipe/node-http` is the only one fully implemented and published node at this time. The others are scaffolded stubs ready for community contribution!
 
 > **Want a new node?**
 > [Request one](https://github.com/Aakif-Kohari/CogniPipe/issues/new?template=node_request.yml)
