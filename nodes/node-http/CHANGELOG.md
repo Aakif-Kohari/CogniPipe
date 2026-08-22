@@ -1,5 +1,11 @@
 # @cognipipe/node-http
 
+## 0.1.1
+
+### Patch Changes
+
+- 10292ff: Add integration coverage for complete HTTP request and response cycles.
+
 ## 0.1.0
 
 ### Minor Changes
