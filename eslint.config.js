@@ -75,6 +75,7 @@ export default [
         global: 'readonly',
         fetch: 'readonly',
         AbortController: 'readonly',
+        AbortSignal: 'readonly',
         DOMException: 'readonly',
         Headers: 'readonly',
         Response: 'readonly',
