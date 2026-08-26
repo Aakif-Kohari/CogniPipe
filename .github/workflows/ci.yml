@@ -109,6 +109,17 @@ jobs:
             echo "⏭️  No test files found yet — skipping"
           fi
 
+      - name: Run tests with coverage
+        run: pnpm turbo test -- --coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: .
+          fail_ci_if_error: false
+          verbose: true
+
   # ── Job 4: Build Verification ──────────────────────────────────────────────
   build:
     name: '🏗️ Build Verification'
