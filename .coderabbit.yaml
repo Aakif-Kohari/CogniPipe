@@ -1,0 +1,30 @@
+# .coderabbit.yaml
+language: en-US
+
+reviews:
+  profile: chill # "chill" is less nitpicky than "assertive" — good for a young project
+  request_changes_workflow: false # keep manual merge control — CodeRabbit only comments, never blocks
+  high_level_summary: true
+  poem: false # CodeRabbit adds a fun poem to PR summaries by default — turn off if you want it purely professional
+  auto_review:
+    enabled: true
+    drafts: false # don't review Draft PRs — matches your 48h rule workflow where drafts are just "I'm working on it"
+
+  path_instructions:
+    - path: 'packages/**/*.ts'
+      instructions: >
+        This is core engine code. Flag any missing JSDoc on exported symbols,
+        any use of 'any' type, and any relative import missing a .js extension
+        (required for our ESM build — see CONTRIBUTING.md).
+    - path: 'nodes/**/*.ts'
+      instructions: >
+        This is a community node package. Confirm it extends BaseNode from
+        @cognipipe/sdk, uses the @CogniNode() decorator, and validates config
+        with Zod via defineConfig().
+    - path: '**/__tests__/**/*.test.ts'
+      instructions: >
+        Confirm all external API calls are mocked — no real network calls
+        should appear in test files for this project.
+
+chat:
+  auto_reply: true
