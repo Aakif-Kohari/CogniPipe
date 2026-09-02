@@ -32,7 +32,7 @@
     "@cognipipe/core": "workspace:*",
     "@cognipipe/sdk": "workspace:*",
     "@cognipipe/types": "workspace:*",
-    "zod": "^4.4.3"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",

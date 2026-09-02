@@ -100,8 +100,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/types
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.5.4
+        version: 4.5.4
     devDependencies:
       '@types/jest':
         specifier: ^30.0.0
@@ -131,11 +131,11 @@ importers:
         specifier: workspace:*
         version: link:../types
       js-yaml:
-        specifier: ^5.2.2
-        version: 5.3.0
+        specifier: ^5.4.1
+        version: 5.4.1
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.5.4
+        version: 4.5.4
     devDependencies:
       '@types/js-yaml':
         specifier: ^4.0.9
@@ -150,8 +150,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.5.4
+        version: 4.5.4
 
   packages/testing: {}
 
@@ -2619,10 +2619,10 @@ packages:
       }
     hasBin: true
 
-  js-yaml@5.3.0:
+  js-yaml@5.4.1:
     resolution:
       {
-        integrity: sha512-muutsYr+e2+d3rTgUGslq5rxbBlUy3cJ61IsHag2QNDQV+7zXWjkUpmALIajhrlLlrgRUiymj6U3zUr/TMK84Q==,
+        integrity: sha512-28R/k+NAjeuf7+CKlTxWZVExJGwVVLwY06DgEnOMz2gEpfNkDcD7QvyiVPT0xy0XXhU8vHsd4Ot42OOPdJG7dQ==,
       }
     hasBin: true
 
@@ -3476,10 +3476,10 @@ packages:
       }
     engines: { node: '>=10' }
 
-  zod@4.4.3:
+  zod@4.5.4:
     resolution:
       {
-        integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==,
+        integrity: sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA==,
       }
 
 snapshots:
@@ -5273,7 +5273,7 @@ snapshots:
       argparse: 1.0.10
       esprima: 4.0.1
 
-  js-yaml@5.3.0:
+  js-yaml@5.4.1:
     dependencies:
       argparse: 2.0.1
 
@@ -5708,4 +5708,4 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  zod@4.4.3: {}
+  zod@4.5.4: {}
