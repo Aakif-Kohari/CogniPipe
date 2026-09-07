@@ -306,7 +306,7 @@ describe('HttpNode', () => {
       setTimeoutSpy.mockRestore();
     });
 
-    it.each([100, 30000])('should accept the %ims timeout boundary', async (timeout) => {
+    it.each([100, 30000])('should accept the %ims timeout boundary', async timeout => {
       const mockResp = mockResponse();
       mockFetch.mockResolvedValueOnce(mockResp);
 
