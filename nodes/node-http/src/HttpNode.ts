@@ -25,7 +25,7 @@ const HttpNodeConfigSchema = z.object({
   /** Request body as a serialised string. Ignored for GET and DELETE. */
   body: z.string().optional(),
   /** Request timeout in milliseconds. Minimum 100ms, maximum 30,000ms. */
-  timeout: z.number().int().min(100).max(30_000).default(5_000),
+  timeout: z.number().int().min(100).max(30_000).default(30_000),
 });
 
 // type HttpNodeConfig = z.infer<typeof HttpNodeConfigSchema>;

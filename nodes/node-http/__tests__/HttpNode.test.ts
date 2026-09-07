@@ -293,7 +293,7 @@ describe('HttpNode', () => {
   });
 
   describe('happy path: timeout defaults', () => {
-    it('should use a default timeout of 5000ms when omitted from config', async () => {
+    it('should use a default timeout of 30000ms when omitted from config', async () => {
       const mockResp = mockResponse();
       mockFetch.mockResolvedValueOnce(mockResp);
 
@@ -302,8 +302,18 @@ describe('HttpNode', () => {
       const node = new HttpNode();
       await node.execute({ url: 'https://api.example.com/data' }, mockContext);
 
-      expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 5000);
+      expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 30000);
       setTimeoutSpy.mockRestore();
+    });
+
+    it.each([100, 30000])('should accept the %ims timeout boundary', async (timeout) => {
+      const mockResp = mockResponse();
+      mockFetch.mockResolvedValueOnce(mockResp);
+
+      const node = new HttpNode();
+      await expect(
+        node.execute({ url: 'https://api.example.com/data', timeout }, mockContext),
+      ).resolves.toMatchObject({ status: 200 });
     });
   });
 
@@ -402,22 +412,22 @@ describe('HttpNode', () => {
       }
     });
 
-    it('should throw NODE_CONFIG_INVALID when timeout < 100ms', async () => {
+    it('should throw NODE_CONFIG_INVALID when timeout is 99ms', async () => {
       expect.assertions(2);
       const node = new HttpNode();
       try {
-        await node.execute({ url: 'https://api.example.com', timeout: 50 }, mockContext);
+        await node.execute({ url: 'https://api.example.com', timeout: 99 }, mockContext);
       } catch (err) {
         expect(err).toBeInstanceOf(CogniPipeError);
         expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
       }
     });
 
-    it('should throw NODE_CONFIG_INVALID when timeout > 30000ms', async () => {
+    it('should throw NODE_CONFIG_INVALID when timeout is 30001ms', async () => {
       expect.assertions(2);
       const node = new HttpNode();
       try {
-        await node.execute({ url: 'https://api.example.com', timeout: 99999 }, mockContext);
+        await node.execute({ url: 'https://api.example.com', timeout: 30001 }, mockContext);
       } catch (err) {
         expect(err).toBeInstanceOf(CogniPipeError);
         expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
@@ -475,6 +485,7 @@ describe('HttpNode', () => {
 
     it('should include timeout value in error message on timeout', async () => {
       expect.assertions(1);
+      const url = 'https://api.example.com';
       mockFetch.mockImplementationOnce(
         (_url: string, options: RequestInit) =>
           new Promise((_resolve, reject) => {
@@ -486,9 +497,11 @@ describe('HttpNode', () => {
 
       const node = new HttpNode();
       try {
-        await node.execute({ url: 'https://api.example.com', timeout: 150 }, mockContext);
+        await node.execute({ url, timeout: 150 }, mockContext);
       } catch (err) {
-        expect((err as CogniPipeError).message).toContain('150ms');
+        expect((err as CogniPipeError).message).toBe(
+          `HTTP request to "${url}" timed out after 150ms.`,
+        );
       }
     });
 
