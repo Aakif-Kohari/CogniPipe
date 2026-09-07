@@ -7,7 +7,7 @@
  */
 
 import type { IExecutionContext, NodeConfig, NodeOutput } from '@cognipipe/types';
-import { BaseNode, CogniNode } from '@cognipipe/sdk';
+import { BaseNode, CogniNode, defineConfig } from '@cognipipe/sdk';
 import { CogniPipeError, COGNIPIPE_ERROR_CODES } from '@cognipipe/core';
 import { z } from 'zod';
 
@@ -28,7 +28,7 @@ const HttpNodeConfigSchema = z.object({
   timeout: z.number().int().min(100).max(30_000).default(30_000),
 });
 
-// type HttpNodeConfig = z.infer<typeof HttpNodeConfigSchema>;
+const HttpNodeConfig = defineConfig(HttpNodeConfigSchema);
 
 /** Shape of the output stored in ExecutionContext after a successful HTTP step. */
 export interface HttpNodeOutput extends NodeOutput {
@@ -66,10 +66,7 @@ export interface HttpNodeOutput extends NodeOutput {
 @CogniNode({ type: '@cognipipe/node-http', version: '1.0.0' })
 export class HttpNode extends BaseNode {
   async execute(config: NodeConfig, _ctx: IExecutionContext): Promise<HttpNodeOutput> {
-    const { url, method, headers, body, timeout } = this.validateConfig(
-      HttpNodeConfigSchema,
-      config,
-    );
+    const { url, method, headers, body, timeout } = HttpNodeConfig.parse(config);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
