@@ -1,5 +1,11 @@
 # @cognipipe/node-http
 
+## 0.1.2
+
+### Patch Changes
+
+- 11481da: Set the default HTTP request timeout to 30 seconds.
+
 ## 0.1.1
 
 ### Patch Changes
