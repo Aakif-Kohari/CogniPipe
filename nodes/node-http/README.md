@@ -99,7 +99,7 @@ config:
 
 **Type:** `number`
 
-**Default:** `5000`
+**Default:** `30000`
 
 Request timeout in milliseconds. Must be between 100 and 30,000.
 
