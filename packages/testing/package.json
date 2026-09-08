@@ -7,6 +7,24 @@
     "pnpm": ">=10.0.0"
   },
   "description": "Test utilities for CogniPipe nodes and workflows",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "jest --coverage",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src/",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@cognipipe/types": "workspace:*"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
