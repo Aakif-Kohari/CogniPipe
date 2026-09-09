@@ -2,6 +2,12 @@
 
 <!-- What does this PR do? Be specific. -->
 
+> **Note on CodeRabbit:** This repo uses CodeRabbit for automated review
+> comments. Its suggestions are helpful but **not always correct** — some
+> are false positives. Use your own judgment on whether a suggestion applies.
+> If you're unsure whether to apply one, leave it as-is and a maintainer
+> will weigh in during review rather than guessing.
+
 ## Related Issue
 
 <!-- Required. PRs without a linked issue will not be reviewed. -->
