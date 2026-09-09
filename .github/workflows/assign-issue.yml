@@ -44,6 +44,7 @@ jobs:
               /^\.take$/,
               /^!assign$/,
               /^\/assign$/,
+              /^me\s+please$/i,
             ];
 
             // Natural-language phrases can appear anywhere in the comment.
@@ -53,7 +54,6 @@ jobs:
               /can\s+i\s+(work\s+on|tackle|take|have|solve)\s+this/,
               /i'?ll\s+(take|tackle|work\s+on|pick\s+up|fix)\s+(this|it)/,
               /assign\s+(this|it)\s+to\s+me/,
-              /\bme\s+please\b/,
               /i'?m\s+interested\s+in\s+(working\s+on|tackling|solving)\s+this/,
               /happy\s+to\s+(work\s+on|fix|solve|tackle)\s+this/,
               /i\s+can\s+(work\s+on|fix|solve|tackle)\s+this/,
