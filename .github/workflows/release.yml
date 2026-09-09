@@ -42,6 +42,7 @@ jobs:
           publish: pnpm changeset publish
           title: 'chore: release packages'
           commit: 'chore: release packages'
+          createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # NOTE: NO NODE_AUTH_TOKEN or NPM_TOKEN here. OIDC handles it.
