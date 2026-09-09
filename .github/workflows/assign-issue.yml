@@ -38,23 +38,35 @@ jobs:
               return;
             }
 
-            // All recognized trigger patterns
-            const triggers = [
-              /^\.take\s*$/,
-              /^!assign\s*$/,
-              /^\/assign\s*$/,
+            // Short commands must be their own line — allows extra text elsewhere
+            // in the comment (e.g. ".take" followed by a note on another line).
+            const exactLineTriggers = [
+              /^\.take$/,
+              /^!assign$/,
+              /^\/assign$/,
+              /^me\s+please$/i,
+            ];
+
+            // Natural-language phrases can appear anywhere in the comment.
+            const anywhereTriggers = [
               /i'?d\s+like\s+to\s+(work\s+on|tackle|take|solve|fix|pick\s+up)\s+this/,
               /i\s+want\s+to\s+(work\s+on|tackle|take|solve|fix)\s+this/,
               /can\s+i\s+(work\s+on|tackle|take|have|solve)\s+this/,
               /i'?ll\s+(take|tackle|work\s+on|pick\s+up|fix)\s+(this|it)/,
               /assign\s+(this|it)\s+to\s+me/,
-              /me\s+please\s*$/,
               /i'?m\s+interested\s+in\s+(working\s+on|tackling|solving)\s+this/,
               /happy\s+to\s+(work\s+on|fix|solve|tackle)\s+this/,
               /i\s+can\s+(work\s+on|fix|solve|tackle)\s+this/,
             ];
 
-            const isTriggered = triggers.some(pattern => pattern.test(comment));
+            const commentLines = comment.split('\n').map(line => line.trim());
+            const lineTriggered = commentLines.some(line =>
+              exactLineTriggers.some(pattern => pattern.test(line))
+            );
+            const anywhereTriggered = anywhereTriggers.some(pattern => pattern.test(comment));
+
+            const isTriggered = lineTriggered || anywhereTriggered;
+
             console.log(`Commenter: @${commenter}`);
             console.log(`Comment: "${comment}"`);
             console.log(`Triggered: ${isTriggered}`);

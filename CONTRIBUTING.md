@@ -31,6 +31,15 @@ Thank you for investing your time! All contributions are valued.
 
 **Prerequisites:** Node.js >= 22, pnpm >= 9, git
 
+> Tip: `corepack enable` (bundled with Node.js) will automatically use the exact
+> pnpm version this project expects. Installing pnpm via `npm install -g pnpm`
+> also works fine, just with a slightly slower cosmetic warning on startup —
+> not a functional problem.
+>
+> **Node.js 25+:** Corepack was removed from the default Node.js distribution
+> starting in v25. Run `npm install --global corepack@latest` first, then
+> `corepack enable` as normal.
+
 ```bash
 # 1. Fork the repository on GitHub
 

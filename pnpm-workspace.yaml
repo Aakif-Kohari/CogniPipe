@@ -2,3 +2,7 @@ packages:
   - 'apps/*'
   - 'packages/*'
   - 'nodes/*'
+
+allowBuilds:
+  '@parcel/watcher': true
+  'unrs-resolver': true
