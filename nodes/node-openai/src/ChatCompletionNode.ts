@@ -2,6 +2,7 @@ import { BaseNode, CogniNode } from '@cognipipe/sdk';
 import type { IExecutionContext, NodeConfig } from '@cognipipe/types';
 import type { AiProviderConfig, AiNodeOutput } from '@cognipipe/types';
 import { CogniPipeError, COGNIPIPE_ERROR_CODES } from '@cognipipe/core';
+import { URL } from 'node:url';
 import { z } from 'zod';
 
 /**
@@ -26,7 +27,7 @@ const ChatCompletionConfigSchema = z.object({
 });
 
 /** Runtime-validated config, inferred from the Zod schema above. */
-export type ChatCompletionConfig = z.infer<typeof ChatCompletionConfigSchema>;
+export type ChatCompletionConfig = z.input<typeof ChatCompletionConfigSchema>;
 
 /**
  * Compile-time config contract for this node, following the pattern
@@ -39,6 +40,7 @@ export interface ChatCompletionNodeConfig extends AiProviderConfig {
 }
 
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 /** Shape of a successful OpenAI Chat Completions API response. */
 interface OpenAiChatCompletionResponse {
@@ -82,6 +84,13 @@ export class ChatCompletionNode extends BaseNode {
 
     const baseUrl = cfg.baseUrl ?? DEFAULT_BASE_URL;
 
+    if (new URL(baseUrl).protocol !== 'https:') {
+      throw new CogniPipeError(
+        `ChatCompletionNode requires an https:// baseUrl to avoid sending the API key over cleartext. Got: "${baseUrl}". Insecure local gateways are not supported in v1.`,
+        { code: COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID, context: { baseUrl } },
+      );
+    }
+
     if (cfg.streaming) {
       throw new CogniPipeError(
         'ChatCompletionNode does not yet support streaming responses. Set streaming to false (or omit it) until SSE aggregation is implemented.',
@@ -90,52 +99,72 @@ export class ChatCompletionNode extends BaseNode {
     }
 
     const startTime = Date.now();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
 
     let response: Response;
-    try {
-      response = await fetch(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: cfg.model,
-          messages: [{ role: 'user', content: cfg.prompt }],
-          stream: false,
-          max_tokens: cfg.maxTokens,
-          temperature: cfg.temperature,
-        }),
-      });
-    } catch (err) {
-      throw new CogniPipeError(
-        `OpenAI API request failed: ${err instanceof Error ? err.message : String(err)}`,
-        {
-          code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
-          cause: err instanceof Error ? err : undefined,
-        },
-      );
-    }
-
-    if (!response.ok) {
-      const errBody = await response.text();
-      throw new CogniPipeError(`OpenAI API returned ${response.status}: ${errBody}`, {
-        code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
-        context: { status: response.status },
-      });
-    }
-
     let rawData: unknown;
+
     try {
-      rawData = await response.json();
-    } catch (err) {
-      throw new CogniPipeError(
-        `OpenAI API returned a response that could not be parsed as JSON: ${err instanceof Error ? err.message : String(err)}`,
-        {
+      try {
+        response = await fetch(`${baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: cfg.model,
+            messages: [{ role: 'user', content: cfg.prompt }],
+            stream: false,
+            max_tokens: cfg.maxTokens,
+            temperature: cfg.temperature,
+          }),
+          signal: controller.signal,
+        });
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          throw new CogniPipeError(`OpenAI API request timed out after ${DEFAULT_TIMEOUT_MS}ms.`, {
+            code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+            context: { baseUrl, timeout: DEFAULT_TIMEOUT_MS },
+          });
+        }
+        throw new CogniPipeError(
+          `OpenAI API request failed: ${err instanceof Error ? err.message : String(err)}`,
+          {
+            code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+            cause: err instanceof Error ? err : undefined,
+          },
+        );
+      }
+
+      if (!response.ok) {
+        const errBody = await response.text();
+        throw new CogniPipeError(`OpenAI API returned ${response.status}: ${errBody}`, {
           code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
-          cause: err instanceof Error ? err : undefined,
-        },
-      );
+          context: { status: response.status },
+        });
+      }
+
+      try {
+        rawData = await response.json();
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          throw new CogniPipeError(`OpenAI API request timed out after ${DEFAULT_TIMEOUT_MS}ms.`, {
+            code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+            context: { baseUrl, timeout: DEFAULT_TIMEOUT_MS },
+          });
+        }
+        throw new CogniPipeError(
+          `OpenAI API returned a response that could not be parsed as JSON: ${err instanceof Error ? err.message : String(err)}`,
+          {
+            code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+            cause: err instanceof Error ? err : undefined,
+          },
+        );
+      }
+    } finally {
+      clearTimeout(timeoutId);
     }
 
     const maybe = rawData as Partial<OpenAiChatCompletionResponse> | null;
@@ -148,7 +177,9 @@ export class ChatCompletionNode extends BaseNode {
       typeof maybe.model !== 'string' ||
       typeof maybe.usage?.prompt_tokens !== 'number' ||
       typeof maybe.usage?.completion_tokens !== 'number' ||
-      typeof maybe.usage?.total_tokens !== 'number'
+      typeof maybe.usage?.total_tokens !== 'number' ||
+      maybe.usage?.total_tokens !==
+        (maybe.usage?.prompt_tokens ?? 0) + (maybe.usage?.completion_tokens ?? 0)
     ) {
       throw new CogniPipeError(
         'OpenAI API returned an incomplete or malformed chat completion response.',

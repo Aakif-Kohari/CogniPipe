@@ -166,4 +166,48 @@ describe('ChatCompletionNode', () => {
       code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
     });
   });
+
+  it('throws CogniPipeError(NODE_CONFIG_INVALID) when baseUrl is not https', async () => {
+    await expect(
+      node.execute({ ...baseConfig, baseUrl: 'http://insecure.local/v1' } as NodeConfig, mockCtx),
+    ).rejects.toMatchObject({ code: COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('throws CogniPipeError(STEP_EXECUTION_FAILED) when the request times out', async () => {
+    jest.useFakeTimers();
+
+    global.fetch = jest.fn().mockImplementation((_url, init) => {
+      return new Promise((_resolve, reject) => {
+        if (init?.signal) {
+          init.signal.addEventListener('abort', () => {
+            reject(new DOMException('The operation was aborted.', 'AbortError'));
+          });
+        }
+      });
+    });
+
+    const executePromise = node.execute(baseConfig, mockCtx);
+
+    jest.advanceTimersByTime(30_000);
+
+    await expect(executePromise).rejects.toMatchObject({
+      code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+      message: expect.stringContaining('timed out'),
+    });
+
+    jest.useRealTimers();
+  });
+
+  it('throws CogniPipeError(STEP_EXECUTION_FAILED) when total_tokens does not match the sum of prompt and completion tokens', async () => {
+    mockFetchOnce({
+      choices: [{ message: { content: 'Hello' } }],
+      model: 'gpt-4o',
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 20 },
+    });
+
+    await expect(node.execute(baseConfig, mockCtx)).rejects.toMatchObject({
+      code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+    });
+  });
 });
