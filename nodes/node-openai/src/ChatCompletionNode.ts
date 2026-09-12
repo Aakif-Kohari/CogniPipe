@@ -81,6 +81,14 @@ export class ChatCompletionNode extends BaseNode {
     }
 
     const baseUrl = cfg.baseUrl ?? DEFAULT_BASE_URL;
+
+    if (cfg.streaming) {
+      throw new CogniPipeError(
+        'ChatCompletionNode does not yet support streaming responses. Set streaming to false (or omit it) until SSE aggregation is implemented.',
+        { code: COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID, context: { streaming: true } },
+      );
+    }
+
     const startTime = Date.now();
 
     let response: Response;
@@ -94,7 +102,7 @@ export class ChatCompletionNode extends BaseNode {
         body: JSON.stringify({
           model: cfg.model,
           messages: [{ role: 'user', content: cfg.prompt }],
-          stream: cfg.streaming,
+          stream: false,
           max_tokens: cfg.maxTokens,
           temperature: cfg.temperature,
         }),
@@ -117,7 +125,41 @@ export class ChatCompletionNode extends BaseNode {
       });
     }
 
-    const data = (await response.json()) as OpenAiChatCompletionResponse;
+    let rawData: unknown;
+    try {
+      rawData = await response.json();
+    } catch (err) {
+      throw new CogniPipeError(
+        `OpenAI API returned a response that could not be parsed as JSON: ${err instanceof Error ? err.message : String(err)}`,
+        {
+          code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+          cause: err instanceof Error ? err : undefined,
+        },
+      );
+    }
+
+    const maybe = rawData as Partial<OpenAiChatCompletionResponse> | null;
+    if (
+      !maybe ||
+      typeof maybe !== 'object' ||
+      !Array.isArray(maybe.choices) ||
+      maybe.choices.length === 0 ||
+      typeof maybe.choices[0]?.message?.content !== 'string' ||
+      typeof maybe.model !== 'string' ||
+      typeof maybe.usage?.prompt_tokens !== 'number' ||
+      typeof maybe.usage?.completion_tokens !== 'number' ||
+      typeof maybe.usage?.total_tokens !== 'number'
+    ) {
+      throw new CogniPipeError(
+        'OpenAI API returned an incomplete or malformed chat completion response.',
+        {
+          code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+          context: { body: rawData },
+        },
+      );
+    }
+
+    const data = maybe as OpenAiChatCompletionResponse;
 
     const latencyMs = Date.now() - startTime;
 

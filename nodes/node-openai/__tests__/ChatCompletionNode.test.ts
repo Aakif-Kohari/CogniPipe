@@ -136,4 +136,34 @@ describe('ChatCompletionNode', () => {
       (ChatCompletionNode as unknown as { cogniNodeMeta?: { type: string } }).cogniNodeMeta?.type,
     ).toBe('@cognipipe/node-openai');
   });
+
+  it('throws CogniPipeError(NODE_CONFIG_INVALID) when streaming is requested', async () => {
+    await expect(
+      node.execute({ ...baseConfig, streaming: true } as NodeConfig, mockCtx),
+    ).rejects.toMatchObject({ code: COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID });
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('throws CogniPipeError(STEP_EXECUTION_FAILED) when the response body is malformed', async () => {
+    mockFetchOnce({ choices: [] }); // missing message content + usage
+
+    await expect(node.execute(baseConfig, mockCtx)).rejects.toMatchObject({
+      code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+    });
+  });
+
+  it('throws CogniPipeError(STEP_EXECUTION_FAILED) when the response body is not valid JSON', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new SyntaxError('Unexpected token');
+      },
+      text: async () => '',
+    } as unknown as Response);
+
+    await expect(node.execute(baseConfig, mockCtx)).rejects.toMatchObject({
+      code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+    });
+  });
 });
