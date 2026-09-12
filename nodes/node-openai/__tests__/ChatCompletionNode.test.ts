@@ -210,4 +210,20 @@ describe('ChatCompletionNode', () => {
       code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
     });
   });
+
+  it('throws a timeout error when the response body read is aborted', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new DOMException('The operation was aborted.', 'AbortError');
+      },
+      text: async () => '',
+    } as unknown as Response);
+
+    await expect(node.execute(baseConfig, mockCtx)).rejects.toMatchObject({
+      code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+      message: expect.stringContaining('timed out'),
+    });
+  });
 });
