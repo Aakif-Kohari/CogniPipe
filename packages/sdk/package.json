@@ -31,7 +31,7 @@
   "dependencies": {
     "@cognipipe/core": "workspace:*",
     "@cognipipe/types": "workspace:*",
-    "zod": "^4.5.4"
+    "zod": "^4.6.2"
   },
   "license": "MIT",
   "repository": {
