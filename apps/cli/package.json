@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
-    "@types/node": "^26.4.1",
+    "@types/node": "^26.5.1",
     "cross-env": "^10.1.0",
     "jest": "^30.5.1",
     "ts-jest": "^29.4.12",
