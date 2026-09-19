@@ -212,6 +212,18 @@ All skill levels are welcome. The most common contribution is a **new node packa
 
 ---
 
+## Contributors
+
+<!-- readme: Aakif-Kohari,collaborators,contributors -start -->
+<!-- readme: Aakif-Kohari,collaborators,contributors -end -->
+
+## Bots
+
+<!-- readme: bots -start -->
+<!-- readme: bots -end -->
+
+---
+
 ## License
 
 MIT © [Aakif Kohari](https://github.com/Aakif-Kohari)
