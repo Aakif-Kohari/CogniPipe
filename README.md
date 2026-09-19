@@ -214,8 +214,8 @@ All skill levels are welcome. The most common contribution is a **new node packa
 
 ## Contributors
 
-<!-- readme: Aakif-Kohari,collaborators,contributors -start -->
-<!-- readme: Aakif-Kohari,collaborators,contributors -end -->
+<!-- readme: collaborators,contributors -start -->
+<!-- readme: collaborators,contributors -end -->
 
 ## Bots
 
