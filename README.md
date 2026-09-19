@@ -8,7 +8,7 @@
 Chain AI models, APIs & transforms into type-safe, testable pipelines.
 
 [![CI Status](https://github.com/Aakif-Kohari/CogniPipe/actions/workflows/ci.yml/badge.svg)](https://github.com/Aakif-Kohari/CogniPipe/actions/workflows/ci.yml)
-
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Aakif-Kohari/CogniPipe/badge)](https://scorecard.dev/viewer/?uri=github.com/Aakif-Kohari/CogniPipe)
 [![npm version](https://img.shields.io/npm/v/@cognipipe/core)](https://www.npmjs.com/package/@cognipipe/core)
 [![npm version](https://img.shields.io/npm/v/cognipipe)](https://www.npmjs.com/package/cognipipe)
 
