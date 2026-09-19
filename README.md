@@ -1,4 +1,7 @@
 <div align="center">
+<!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
+[![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)](#contributors-)
+<!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 # CogniPipe
 
@@ -215,3 +218,25 @@ All skill levels are welcome. The most common contribution is a **new node packa
 ## License
 
 MIT © [Aakif Kohari](https://github.com/Aakif-Kohari)
+
+## Contributors ✨
+
+Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Aakif-Kohari"><img src="https://avatars.githubusercontent.com/u/159609181?v=4?s=100" width="100px;" alt="Aakif Kohari"/><br /><sub><b>Aakif Kohari</b></sub></a><br /><a href="https://github.com/Aakif-Kohari/CogniPipe/commits?author=Aakif-Kohari" title="Code">💻</a> <a href="https://github.com/Aakif-Kohari/CogniPipe/commits?author=Aakif-Kohari" title="Documentation">📖</a> <a href="#infra-Aakif-Kohari" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="#maintenance-Aakif-Kohari" title="Maintenance">🚧</a> <a href="#projectManagement-Aakif-Kohari" title="Project Management">📆</a> <a href="https://github.com/Aakif-Kohari/CogniPipe/commits?author=Aakif-Kohari" title="Tests">⚠️</a> <a href="https://github.com/Aakif-Kohari/CogniPipe/issues?q=author%3AAakif-Kohari" title="Bug reports">🐛</a> <a href="#ideas-Aakif-Kohari" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/Aakif-Kohari/CogniPipe/pulls?q=is%3Apr+reviewed-by%3AAakif-Kohari" title="Reviewed Pull Requests">👀</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
+This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!
