@@ -292,15 +292,18 @@ All skill levels are welcome. The most common contribution is a **new node packa
 
 ## Support Policy
 
-- **Latest minor version**: Actively maintained with features and fixes.
-- **Previous minor version**: Security fixes only for 3 months after the next minor release.
-- **Pre-1.0 versions**: Best-effort support; breaking changes may occur between minor versions per semver conventions.
+CogniPipe is currently in pre-1.0 active development.
+
+- **Latest Release**: Actively maintained with new features, bug fixes, and security patches.
+- **Pre-1.0 Versions**: Provided "as-is" with best-effort support. Breaking changes may occur between minor versions per semver conventions. Users are strongly encouraged to always run the latest version.
 
 ---
 
-## End-of-Life Policy
+## Security & End-of-Life Policy
 
-Once a new major version is released, the previous major version will receive critical security patches for 6 months. After that period, no further updates will be provided. Users are encouraged to upgrade to the latest major version.
+Security fixes are applied exclusively to the **latest release**.
+
+Due to the pre-1.0 status and solo maintenance of the project, older minor or major versions **do not** receive backported security patches. To ensure your workflows remain secure, please upgrade to the latest version as soon as a security update is published.
 
 ---
 
