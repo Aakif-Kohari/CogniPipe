@@ -34,6 +34,7 @@ Closes #
 - [ ] All CI checks pass locally (`pnpm test && pnpm lint && pnpm type-check`)
 - [ ] Conventional commit format used for all commits
 - [ ] A [changeset](https://github.com/changesets/changesets) has been added (`pnpm changeset`)
+- [ ] I assert that I am legally authorized to make this contribution and that I hold the necessary rights to submit it under the project's MIT license.
 
 **If this adds/modifies a node:**
 

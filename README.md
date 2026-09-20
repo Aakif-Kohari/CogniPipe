@@ -9,6 +9,8 @@ Chain AI models, APIs & transforms into type-safe, testable pipelines.
 
 [![CI Status](https://github.com/Aakif-Kohari/CogniPipe/actions/workflows/ci.yml/badge.svg)](https://github.com/Aakif-Kohari/CogniPipe/actions/workflows/ci.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Aakif-Kohari/CogniPipe/badge)](https://scorecard.dev/viewer/?uri=github.com/Aakif-Kohari/CogniPipe)
+[![OpenSSF Best Practices Badge](https://www.bestpractices.dev/projects/14731/badge)](https://www.bestpractices.dev/projects/14731)
+[![OpenSSF Best Practices Baseline](https://www.bestpractices.dev/projects/14731/baseline)](https://www.bestpractices.dev/projects/14731)
 [![npm version](https://img.shields.io/npm/v/@cognipipe/core)](https://www.npmjs.com/package/@cognipipe/core)
 [![npm version](https://img.shields.io/npm/v/cognipipe)](https://www.npmjs.com/package/cognipipe)
 
@@ -111,6 +113,16 @@ pnpm add @cognipipe/node-http @cognipipe/node-openai
 # Run the example workflow
 cognipipe run workflow.yaml
 ```
+
+### Verifying Package Authenticity
+
+All `@cognipipe/*` packages are published with npm provenance attestations via Trusted Publishing. To verify:
+
+```bash
+npm audit signatures
+```
+
+This confirms packages were published by the authenticated CI/CD pipeline and have not been tampered with.
 
 ---
 
@@ -275,6 +287,20 @@ All skill levels are welcome. The most common contribution is a **new node packa
 	<tbody>
 </table>
 <!-- readme: bots -end -->
+
+---
+
+## Support Policy
+
+- **Latest minor version**: Actively maintained with features and fixes.
+- **Previous minor version**: Security fixes only for 3 months after the next minor release.
+- **Pre-1.0 versions**: Best-effort support; breaking changes may occur between minor versions per semver conventions.
+
+---
+
+## End-of-Life Policy
+
+Once a new major version is released, the previous major version will receive critical security patches for 6 months. After that period, no further updates will be provided. Users are encouraged to upgrade to the latest major version.
 
 ---
 
