@@ -9,6 +9,8 @@ Chain AI models, APIs & transforms into type-safe, testable pipelines.
 
 [![CI Status](https://github.com/Aakif-Kohari/CogniPipe/actions/workflows/ci.yml/badge.svg)](https://github.com/Aakif-Kohari/CogniPipe/actions/workflows/ci.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Aakif-Kohari/CogniPipe/badge)](https://scorecard.dev/viewer/?uri=github.com/Aakif-Kohari/CogniPipe)
+[![OpenSSF Best Practices Badge](https://www.bestpractices.dev/projects/14731/badge)](https://www.bestpractices.dev/projects/14731)
+[![OpenSSF Best Practices Baseline](https://www.bestpractices.dev/projects/14731/baseline)](https://www.bestpractices.dev/projects/14731)
 [![npm version](https://img.shields.io/npm/v/@cognipipe/core)](https://www.npmjs.com/package/@cognipipe/core)
 [![npm version](https://img.shields.io/npm/v/cognipipe)](https://www.npmjs.com/package/cognipipe)
 
@@ -111,6 +113,16 @@ pnpm add @cognipipe/node-http @cognipipe/node-openai
 # Run the example workflow
 cognipipe run workflow.yaml
 ```
+
+### Verifying Package Authenticity
+
+All `@cognipipe/*` packages are published with npm provenance attestations via Trusted Publishing. To verify:
+
+```bash
+npm audit signatures
+```
+
+This confirms packages were published by the authenticated CI/CD pipeline and have not been tampered with.
 
 ---
 
@@ -275,6 +287,23 @@ All skill levels are welcome. The most common contribution is a **new node packa
 	<tbody>
 </table>
 <!-- readme: bots -end -->
+
+---
+
+## Support Policy
+
+CogniPipe is currently in pre-1.0 active development.
+
+- **Latest Release**: Actively maintained with new features, bug fixes, and security patches.
+- **Pre-1.0 Versions**: Provided "as-is" with best-effort support. Because CogniPipe is pre-1.0, any release may include breaking changes. Users are strongly encouraged to always run the latest version.
+
+---
+
+## Security & End-of-Life Policy
+
+Security fixes are applied exclusively to the **latest release**.
+
+Due to the pre-1.0 status and solo maintenance of the project, older minor or major versions **do not** receive backported security patches. To ensure your workflows remain secure, please upgrade to the latest version as soon as a security update is published.
 
 ---
 
