@@ -295,7 +295,7 @@ All skill levels are welcome. The most common contribution is a **new node packa
 CogniPipe is currently in pre-1.0 active development.
 
 - **Latest Release**: Actively maintained with new features, bug fixes, and security patches.
-- **Pre-1.0 Versions**: Provided "as-is" with best-effort support. Breaking changes may occur between minor versions per semver conventions. Users are strongly encouraged to always run the latest version.
+- **Pre-1.0 Versions**: Provided "as-is" with best-effort support. Because CogniPipe is pre-1.0, any release may include breaking changes. Users are strongly encouraged to always run the latest version.
 
 ---
 
