@@ -143,6 +143,72 @@ describe('EmbeddingNode', () => {
     });
   });
 
+  it('throws CogniPipeError(STEP_EXECUTION_FAILED) on network failure', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+
+    await expect(node.execute(baseConfig, mockCtx)).rejects.toMatchObject({
+      code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+      message: expect.stringContaining('ECONNREFUSED'),
+    });
+  });
+
+  it('throws CogniPipeError(STEP_EXECUTION_FAILED) when the response body is not valid JSON', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new SyntaxError('Unexpected token');
+      },
+      text: async () => '',
+    } as unknown as Response);
+
+    await expect(node.execute(baseConfig, mockCtx)).rejects.toMatchObject({
+      code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+      message: expect.stringContaining('could not be parsed as JSON'),
+    });
+  });
+
+  it('throws CogniPipeError(STEP_EXECUTION_FAILED) when the request times out', async () => {
+    jest.useFakeTimers();
+
+    global.fetch = jest.fn().mockImplementation((_url, init) => {
+      return new Promise((_resolve, reject) => {
+        if (init?.signal) {
+          init.signal.addEventListener('abort', () => {
+            reject(new DOMException('The operation was aborted.', 'AbortError'));
+          });
+        }
+      });
+    });
+
+    const executePromise = node.execute(baseConfig, mockCtx);
+
+    jest.advanceTimersByTime(30_000);
+
+    await expect(executePromise).rejects.toMatchObject({
+      code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+      message: expect.stringContaining('timed out'),
+    });
+
+    jest.useRealTimers();
+  });
+
+  it('throws a timeout error when the response body read is aborted', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new DOMException('The operation was aborted.', 'AbortError');
+      },
+      text: async () => '',
+    } as unknown as Response);
+
+    await expect(node.execute(baseConfig, mockCtx)).rejects.toMatchObject({
+      code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+      message: expect.stringContaining('timed out'),
+    });
+  });
+
   it('throws CogniPipeError(STEP_EXECUTION_FAILED) when the response body is malformed', async () => {
     mockFetchOnce({
       data: [],
