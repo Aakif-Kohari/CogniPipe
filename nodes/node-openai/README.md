@@ -1,12 +1,14 @@
 # @cognipipe/node-openai
 
-OpenAI Chat Completions node for CogniPipe workflows.
+OpenAI nodes for CogniPipe workflows.
 
 > **Status:** private package, not yet published to npm. First-publish and
 > Trusted Publisher setup on npmjs.com is a maintainer task tracked
 > separately — this package stays `"private": true` until that's done.
 
-## Usage
+## ChatCompletionNode
+
+### Usage
 
 ```yaml
 steps:
@@ -26,7 +28,7 @@ tokens: '{{ steps.summarize.output.aiMeta.totalTokens }}'
 model: '{{ steps.summarize.output.aiMeta.modelUsed }}'
 ```
 
-## Config
+### Config
 
 | Field             | Type                          | Required | Default                     | Notes                                                                                                                                                                                                                                                                                                             |
 | ----------------- | ----------------------------- | -------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -41,17 +43,61 @@ model: '{{ steps.summarize.output.aiMeta.modelUsed }}'
 | `capabilities`    | `AiProviderCapability[]`      | —        | —                           | Inherited from `AiProviderConfig`. Accepted by the shared type; this node doesn't yet gate behavior on it (no capability-specific branches exist for chat-only usage in v1).                                                                                                                                      |
 | `rateLimitPolicy` | `AiRateLimitPolicy`           | —        | —                           | Inherited from `AiProviderConfig`. **Not wired up in v1** — a 429 response is surfaced immediately as `CogniPipeError(STEP_EXECUTION_FAILED)` rather than retried. Once `RetryManager` lands, this node will consume it to drive exponential-backoff retries without a breaking change to this node's public API. |
 
-## Output (`AiNodeOutput`)
+### Output (`AiNodeOutput`)
 
 - `content` — the model's text response.
 - `aiMeta.inputTokens` / `outputTokens` / `totalTokens` — normalized from OpenAI's `usage.prompt_tokens` / `usage.completion_tokens` / `usage.total_tokens` (used as-is, not recomputed).
 - `aiMeta.modelUsed` — the exact model OpenAI served (may differ from the configured alias).
 - `aiMeta.providerUrlUsed`, `latencyMs`, `retryCount` (always `0` in v1), `fallbackUsed` (always `false` in v1), `completionReason` (always `'success'` in v1).
 
+## EmbeddingNode
+
+### Usage
+
+```yaml
+steps:
+  - name: embed-query
+    uses: '@cognipipe/node-openai-embedding'
+    config:
+      model: text-embedding-3-small
+      input: 'Search query text'
+      apiKeyEnv: OPENAI_API_KEY
+```
+
+Downstream steps can read the result via:
+
+```yaml
+embedding: '{{ steps.embed-query.output.embedding }}'
+tokens: '{{ steps.embed-query.output.aiMeta.totalTokens }}'
+model: '{{ steps.embed-query.output.aiMeta.modelUsed }}'
+```
+
+### Config
+
+| Field             | Type                                                   | Required | Default                     | Notes                                                                                                                                                              |
+| ----------------- | ------------------------------------------------------ | -------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `model`           | `'text-embedding-3-small' \| 'text-embedding-3-large'` | ✅       | —                           | Passed verbatim to the Embeddings API.                                                                                                                             |
+| `input`           | `string`                                               | ✅       | —                           | Text to embed. Must be non-empty.                                                                                                                                  |
+| `apiKeyEnv`       | `string`                                               | —        | `'OPENAI_API_KEY'`          | **Name** of the env var holding your OpenAI API key. The node reads `process.env[apiKeyEnv]` — never put a raw key in config.                                      |
+| `provider`        | `string`                                               | —        | `'openai'`                  | Logging/labeling only. Never branched on.                                                                                                                          |
+| `baseUrl`         | `string` (URL)                                         | —        | `https://api.openai.com/v1` | Override for compatible gateways. **Must be `https://`** to prevent sending the API key in cleartext. Insecure local gateways are not supported in v1.             |
+| `capabilities`    | `AiProviderCapability[]`                               | —        | —                           | Inherited from `AiProviderConfig`. Accepted by the shared type; this node doesn't yet gate behavior on it.                                                         |
+| `rateLimitPolicy` | `AiRateLimitPolicy`                                    | —        | —                           | Inherited from `AiProviderConfig`. **Not wired up in v1** — a 429 response is surfaced immediately as `CogniPipeError(STEP_EXECUTION_FAILED)` rather than retried. |
+
+### Output (`EmbeddingNodeOutput`)
+
+- `content` — intentionally `undefined`. Embedding vectors are not text content.
+- `embedding` — the embedding vector from `data[0].embedding`; length depends on the configured model.
+- `aiMeta.inputTokens` — normalized from OpenAI's `usage.prompt_tokens`.
+- `aiMeta.outputTokens` — always `0`; embeddings do not have output tokens.
+- `aiMeta.totalTokens` — equals `inputTokens` for embeddings.
+- `aiMeta.modelUsed` — the exact model OpenAI served (may differ from the configured alias).
+- `aiMeta.providerUrlUsed`, `latencyMs`, `retryCount` (always `0` in v1), `fallbackUsed` (always `false` in v1), `completionReason` (always `'success'` in v1).
+
 ## Errors
 
 - Missing/unset `apiKeyEnv` → `CogniPipeError(NODE_CONFIG_INVALID)`.
-- Invalid `model`, empty `prompt`, or insecure `baseUrl` (not `https://`) → `CogniPipeError(NODE_CONFIG_INVALID)`.
+- Invalid `model`, empty `prompt` / `input`, or insecure `baseUrl` (not `https://`) → `CogniPipeError(NODE_CONFIG_INVALID)`.
 - Non-2xx response from OpenAI → `CogniPipeError(STEP_EXECUTION_FAILED)` (message includes the HTTP status).
 - Network failure or request timeout (30s) → `CogniPipeError(STEP_EXECUTION_FAILED)`.
 - Malformed response or token count mismatch → `CogniPipeError(STEP_EXECUTION_FAILED)`.
