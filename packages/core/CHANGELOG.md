@@ -1,5 +1,11 @@
 # @cognipipe/core
 
+## 0.1.1
+
+### Patch Changes
+
+- 3dcf01f: Add fast-check property-based fuzz tests for interpolation engine.
+
 ## 0.1.0
 
 ### Minor Changes
