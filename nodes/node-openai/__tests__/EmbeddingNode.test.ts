@@ -209,9 +209,50 @@ describe('EmbeddingNode', () => {
     });
   });
 
+  it('throws CogniPipeError(STEP_EXECUTION_FAILED) when response text read is aborted on non-2xx', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+      text: async () => {
+        throw new DOMException('The operation was aborted.', 'AbortError');
+      },
+    } as unknown as Response);
+
+    await expect(node.execute(baseConfig, mockCtx)).rejects.toMatchObject({
+      code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+      message: expect.stringContaining('timed out'),
+    });
+  });
+
+  it('propagates non-abort response text read failures on non-2xx', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+      text: async () => {
+        throw new Error('body read failed');
+      },
+    } as unknown as Response);
+
+    await expect(node.execute(baseConfig, mockCtx)).rejects.toThrow('body read failed');
+  });
+
   it('throws CogniPipeError(STEP_EXECUTION_FAILED) when the response body is malformed', async () => {
     mockFetchOnce({
       data: [],
+      model: 'text-embedding-3-small',
+      usage: { prompt_tokens: 7, total_tokens: 7 },
+    });
+
+    await expect(node.execute(baseConfig, mockCtx)).rejects.toMatchObject({
+      code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+    });
+  });
+
+  it('throws CogniPipeError(STEP_EXECUTION_FAILED) when the response body has an empty embedding vector', async () => {
+    mockFetchOnce({
+      data: [{ embedding: [] }],
       model: 'text-embedding-3-small',
       usage: { prompt_tokens: 7, total_tokens: 7 },
     });

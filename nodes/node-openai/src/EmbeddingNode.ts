@@ -136,7 +136,22 @@ export class EmbeddingNode extends BaseNode {
       }
 
       if (!response.ok) {
-        const errBody = await response.text();
+        let errBody: string;
+        try {
+          errBody = await response.text();
+        } catch (err) {
+          if (err instanceof DOMException && err.name === 'AbortError') {
+            throw new CogniPipeError(
+              `OpenAI API request timed out after ${DEFAULT_TIMEOUT_MS}ms.`,
+              {
+                code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+                context: { baseUrl, timeout: DEFAULT_TIMEOUT_MS },
+              },
+            );
+          }
+          throw err;
+        }
+
         throw new CogniPipeError(`OpenAI API returned ${response.status}: ${errBody}`, {
           code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
           context: { status: response.status },
@@ -172,6 +187,7 @@ export class EmbeddingNode extends BaseNode {
       !Array.isArray(maybe.data) ||
       maybe.data.length === 0 ||
       !Array.isArray(embedding) ||
+      embedding.length === 0 ||
       !embedding.every(value => typeof value === 'number') ||
       typeof maybe.model !== 'string' ||
       typeof maybe.usage?.prompt_tokens !== 'number' ||
