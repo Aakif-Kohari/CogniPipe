@@ -12,6 +12,7 @@
  * import { WorkflowParser, SUPPORTED_EXTENSIONS } from '@cognipipe/core';
  * import { NodeRegistry } from '@cognipipe/core';
  * import { WorkflowExecutor } from '@cognipipe/core';
+ * import { detectCycles } from '@cognipipe/core';
  * ```
  *
  * Modules re-exported here:
@@ -24,6 +25,7 @@
  * - `engine/interpolation`    — {@link resolveTemplate}, {@link resolveDotPath}
  * - `engine/NodeRegistry`     — {@link NodeRegistry}, {@link NodeConstructor}
  * - `engine/WorkflowExecutor` — {@link WorkflowExecutor}, {@link ExecutionResult}, {@link StepError}
+ * - `engine/dag`              — {@link detectCycles}
  */
 export { CogniPipeError, isCogniPipeError } from './errors/CogniPipeError.js';
 export type { CogniPipeErrorOptions } from './errors/CogniPipeError.js';
@@ -39,3 +41,4 @@ export { NodeRegistry } from './engine/NodeRegistry.js';
 export type { NodeConstructor } from './engine/NodeRegistry.js';
 export { WorkflowExecutor } from './engine/WorkflowExecutor.js';
 export type { ExecutionResult, StepError } from './engine/WorkflowExecutor.js';
+export { detectCycles } from './engine/dag.js';

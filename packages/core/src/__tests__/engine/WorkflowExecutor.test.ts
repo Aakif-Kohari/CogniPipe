@@ -343,6 +343,85 @@ describe('WorkflowExecutor', () => {
     });
   });
 
+  describe('circular dependency', () => {
+    it('throws CIRCULAR_DEPENDENCY before run() does anything else', async () => {
+      const registry = new NodeRegistry();
+      registry.register('@cognipipe/node-echo', EchoNode);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        { name: 'a', uses: '@cognipipe/node-echo', config: {}, dependsOn: ['b'] },
+        { name: 'b', uses: '@cognipipe/node-echo', config: {}, dependsOn: ['a'] },
+      ]);
+
+      let thrown: unknown;
+      try {
+        await executor.run(config);
+      } catch (err) {
+        thrown = err;
+      }
+
+      expect(isCogniPipeError(thrown)).toBe(true);
+      expect((thrown as { code: string }).code).toBe(COGNIPIPE_ERROR_CODES.CIRCULAR_DEPENDENCY);
+    });
+
+    it('zero nodes are instantiated when a cycle is detected', async () => {
+      const registry = new NodeRegistry();
+      registry.register('@cognipipe/node-echo', EchoNode);
+      const instantiateSpy = jest.spyOn(registry, 'instantiate');
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        { name: 'a', uses: '@cognipipe/node-echo', config: {}, dependsOn: ['b'] },
+        { name: 'b', uses: '@cognipipe/node-echo', config: {}, dependsOn: ['a'] },
+      ]);
+
+      try {
+        await executor.run(config);
+      } catch {
+        // expected
+      }
+
+      expect(instantiateSpy).not.toHaveBeenCalled();
+      instantiateSpy.mockRestore();
+    });
+
+    it('error message contains the cycle path', async () => {
+      const registry = new NodeRegistry();
+      registry.register('@cognipipe/node-echo', EchoNode);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        { name: 'a', uses: '@cognipipe/node-echo', config: {}, dependsOn: ['b'] },
+        { name: 'b', uses: '@cognipipe/node-echo', config: {}, dependsOn: ['a'] },
+      ]);
+
+      let thrown: unknown;
+      try {
+        await executor.run(config);
+      } catch (err) {
+        thrown = err;
+      }
+
+      const message = (thrown as Error).message;
+      expect(message).toContain('a → b → a');
+    });
+
+    it('a valid (acyclic) workflow is unaffected by the new check', async () => {
+      const registry = new NodeRegistry();
+      registry.register('@cognipipe/node-echo', EchoNode);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        { name: 'a', uses: '@cognipipe/node-echo', config: {} },
+        { name: 'b', uses: '@cognipipe/node-echo', config: {}, dependsOn: ['a'] },
+      ]);
+
+      const result = await executor.run(config);
+      expect(result.stepErrors).toEqual([]);
+    });
+  });
+
   describe('error handling', () => {
     it('throws CogniPipeError(STEP_EXECUTION_FAILED) with the step name and original error as .cause when a step throws without continueOnError', async () => {
       const registry = new NodeRegistry();

@@ -20,6 +20,7 @@ import type {
 } from '@cognipipe/types';
 import { ExecutionContext } from './ExecutionContext.js';
 import { NodeRegistry } from './NodeRegistry.js';
+import { detectCycles } from './dag.js';
 import { CogniPipeError } from '../errors/CogniPipeError.js';
 import { COGNIPIPE_ERROR_CODES } from '../errors/errorCodes.js';
 
@@ -167,6 +168,8 @@ export class WorkflowExecutor {
    * @returns An ExecutionResult containing the final context and any step errors.
    * @throws {CogniPipeError} NODE_NOT_REGISTERED if any step's `uses` is not in the registry.
    *   Thrown before any step executes, during the upfront node validation pass.
+   * @throws {CogniPipeError} CIRCULAR_DEPENDENCY if the workflow contains a cyclic dependsOn graph.
+   *   Thrown before any step executes or any node is instantiated.
    * @throws {CogniPipeError} STEP_EXECUTION_FAILED if a step throws and `continueOnError` is
    *   not true.
    */
@@ -186,6 +189,15 @@ export class WorkflowExecutor {
           },
         );
       }
+    }
+
+    // cycle detection, also upfront, before any node instantiation
+    const cycles = detectCycles(config.steps);
+    if (cycles.length > 0) {
+      throw new CogniPipeError(
+        `Workflow "${config.name}" has a circular dependency: ${cycles[0]}`,
+        { code: COGNIPIPE_ERROR_CODES.CIRCULAR_DEPENDENCY, context: { cycles } },
+      );
     }
 
     // 2. Seed the context and prepare the accumulator for continueOnError failures.
