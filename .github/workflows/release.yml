@@ -67,13 +67,12 @@ jobs:
             local spec="$1"
             local attempt
 
-            for attempt in 1 2 3; do
+            for attempt in $(seq 1 20); do
               if npm view "$spec" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
                 return 0
               fi
-
-              if [ "$attempt" -lt 3 ]; then
-                sleep 2
+              if [ "$attempt" -lt 20 ]; then
+                sleep 15
               fi
             done
 
@@ -98,6 +97,12 @@ jobs:
 
             echo "Checking npm for $tag"
 
+            # NOTE: if npm propagation somehow still isn't visible after this retry
+            # budget, the step skips (see ::warning:: above) rather than risk tagging
+            # the wrong commit on a later, unrelated run. This is a deliberate
+            # tradeoff — reconstructing the true publish commit after the fact isn't
+            # reliably possible from this workflow. Escalate to manual backfill (as
+            # done historically) if this warning ever actually fires.
             if ! npm_has_version "${name}@${version}"; then
               echo "::warning::$tag is not confirmed on npm; skipping tag/release backfill"
               continue
@@ -113,7 +118,11 @@ jobs:
 
             if ! gh release view "$tag" >/dev/null 2>&1; then
               echo "Missing GitHub Release $tag — creating"
-              gh release create "$tag" --generate-notes
+              release_args=(--generate-notes)
+              if [[ "$version" == *-* ]]; then
+                release_args+=(--prerelease)
+              fi
+              gh release create "$tag" "${release_args[@]}"
             else
               echo "GitHub Release $tag already exists"
             fi
