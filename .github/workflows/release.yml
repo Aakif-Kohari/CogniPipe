@@ -51,7 +51,9 @@ jobs:
           # NOTE: NO NODE_AUTH_TOKEN or NPM_TOKEN here. OIDC handles it.
 
       - name: Backfill any tags changesets/action missed
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.changesets.outcome == 'success' && steps.changesets.outputs.hasChangesets == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git fetch --tags
           # Deliberately reads each package's own package.json rather than
@@ -68,6 +70,7 @@ jobs:
               echo "Missing tag $tag — creating"
               git tag "$tag"
               git push origin "$tag"
+              gh release create "$tag" --generate-notes
             else
               echo "Tag $tag already exists — skipping"
             fi
