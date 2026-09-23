@@ -55,23 +55,66 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git fetch --tags
+          git fetch --tags --force
           # Deliberately reads each package's own package.json rather than
           # trusting changesets/action's publishedPackages output — if the
           # action's own npm-publish-output parsing is what's broken (see
           # PR description), that output could be wrong too. Add newly
           # published packages to this list as they go public (e.g.
           # nodes/node-openai, once it's no longer private).
+
+          npm_has_version() {
+            local spec="$1"
+            local attempt
+
+            for attempt in 1 2 3; do
+              if npm view "$spec" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
+                return 0
+              fi
+
+              if [ "$attempt" -lt 3 ]; then
+                sleep 2
+              fi
+            done
+
+            return 1
+          }
+
           for pkg in packages/core packages/sdk packages/types apps/cli nodes/node-http; do
+            if [ ! -f "${pkg}/package.json" ]; then
+              echo "Skipping ${pkg}: no package.json"
+              continue
+            fi
+
             name=$(node -p "require('./${pkg}/package.json').name")
             version=$(node -p "require('./${pkg}/package.json').version")
+            private=$(node -p "require('./${pkg}/package.json').private === true ? 'true' : 'false'")
             tag="${name}@${version}"
-            if ! git rev-parse "$tag" >/dev/null 2>&1; then
-              echo "Missing tag $tag — creating"
-              git tag "$tag"
-              git push origin "$tag"
+
+            if [ "$private" = "true" ]; then
+              echo "Skipping private package $tag"
+              continue
+            fi
+
+            echo "Checking npm for $tag"
+
+            if ! npm_has_version "${name}@${version}"; then
+              echo "::warning::$tag is not confirmed on npm; skipping tag/release backfill"
+              continue
+            fi
+
+            if ! git ls-remote --exit-code origin "refs/tags/$tag" >/dev/null 2>&1; then
+              echo "Missing remote tag $tag — creating"
+              git tag -f "$tag"
+              git push origin "refs/tags/$tag"
+            else
+              echo "Remote tag $tag already exists"
+            fi
+
+            if ! gh release view "$tag" >/dev/null 2>&1; then
+              echo "Missing GitHub Release $tag — creating"
               gh release create "$tag" --generate-notes
             else
-              echo "Tag $tag already exists — skipping"
+              echo "GitHub Release $tag already exists"
             fi
           done
