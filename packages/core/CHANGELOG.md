@@ -1,5 +1,11 @@
 # @cognipipe/core
 
+## 0.2.0
+
+### Minor Changes
+
+- 2390241: Implement circular dependency detection for the DAG executor.
+
 ## 0.1.1
 
 ### Patch Changes
