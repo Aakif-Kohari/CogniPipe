@@ -39,6 +39,7 @@ jobs:
         run: pnpm turbo build
 
       - name: Create Release PR or Publish
+        id: changesets
         uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1
         with:
           publish: pnpm changeset publish
@@ -48,3 +49,26 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # NOTE: NO NODE_AUTH_TOKEN or NPM_TOKEN here. OIDC handles it.
+
+      - name: Backfill any tags changesets/action missed
+        if: steps.changesets.outputs.published == 'true'
+        run: |
+          git fetch --tags
+          # Deliberately reads each package's own package.json rather than
+          # trusting changesets/action's publishedPackages output — if the
+          # action's own npm-publish-output parsing is what's broken (see
+          # PR description), that output could be wrong too. Add newly
+          # published packages to this list as they go public (e.g.
+          # nodes/node-openai, once it's no longer private).
+          for pkg in packages/core packages/sdk packages/types apps/cli nodes/node-http; do
+            name=$(node -p "require('./${pkg}/package.json').name")
+            version=$(node -p "require('./${pkg}/package.json').version")
+            tag="${name}@${version}"
+            if ! git rev-parse "$tag" >/dev/null 2>&1; then
+              echo "Missing tag $tag — creating"
+              git tag "$tag"
+              git push origin "$tag"
+            else
+              echo "Tag $tag already exists — skipping"
+            fi
+          done
