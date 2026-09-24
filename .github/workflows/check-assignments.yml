@@ -88,19 +88,31 @@ jobs:
                 if (assignMatch) {
                   assignedAt = assignMatch[1].trim();
                   assignee   = assignMatch[2].trim();
+                  // New assignment cycle: drop any state carried over from a prior assignee
+                  warningPostedForDeadline = null;
+                  lastExtensionGrantedAt   = null;
+                  extensionAlreadyGranted  = false;
+                  pendingExtensionRequest  = null;
                 }
 
-                const warningMatch = body.match(/<!-- COGNIPIPE_36H_WARNING:(.+?) -->/);
-                if (warningMatch) {
+                const isOurBot = c.user?.type === 'Bot' && c.user?.login === 'github-actions[bot]';
+
+                const warningMatch = isOurBot && body.match(/<!-- COGNIPIPE_36H_WARNING:(.+?) -->/);
+                if (warningMatch && !Number.isNaN(Date.parse(warningMatch[1].trim()))) {
                   warningPostedForDeadline = warningMatch[1].trim();
                 }
 
                 // Our own extension-grant marker — bot-posted, not the raw ask
-                const grantMatch = body.match(/<!-- COGNIPIPE_EXTENSION_GRANTED:(.+?) -->/);
-                if (grantMatch) {
+                const grantMatch = isOurBot && body.match(/<!-- COGNIPIPE_EXTENSION_GRANTED:(.+?) -->/);
+                if (grantMatch && !Number.isNaN(Date.parse(grantMatch[1].trim()))) {
                   lastExtensionGrantedAt  = grantMatch[1].trim();
                   extensionAlreadyGranted = true;
                   pendingExtensionRequest = null; // this bot reply resolves any earlier request
+                }
+
+                // Our own escalation reply also resolves the pending request
+                if (isOurBot && body.includes('<!-- COGNIPIPE_SECOND_EXTENSION_FLAGGED -->')) {
+                  pendingExtensionRequest = null;
                 }
 
                 // Detect a fresh, not-yet-handled extension request from the assignee
@@ -144,8 +156,10 @@ jobs:
               // ── Step 4: Acknowledge a fresh extension request, visibly ──────
               if (pendingExtensionRequest) {
                 if (!extensionAlreadyGranted) {
-                  const grantedAt   = now.toISOString();
-                  const newDeadline = new Date(now.getTime() + EXTENSION_HOURS * 60 * 60 * 1000);
+                  const grantedAt      = now.toISOString();
+                  const baseDeadlineMs = new Date(assignedAt).getTime() + 48 * 60 * 60 * 1000;
+                  const extDeadlineMs  = now.getTime() + EXTENSION_HOURS * 60 * 60 * 1000;
+                  const newDeadline    = new Date(Math.max(baseDeadlineMs, extDeadlineMs));
 
                   console.log(`  ✅ Granting ${EXTENSION_HOURS}h extension requested by @${pendingExtensionRequest.requester}`);
 
@@ -185,9 +199,11 @@ jobs:
               }
 
               // ── Step 5: Compute the effective deadline for this cycle ───────
-              const deadlineAt = lastExtensionGrantedAt
-                ? new Date(new Date(lastExtensionGrantedAt).getTime() + EXTENSION_HOURS * 60 * 60 * 1000)
-                : new Date(new Date(assignedAt).getTime() + 48 * 60 * 60 * 1000);
+              const baseDeadlineMs = new Date(assignedAt).getTime() + 48 * 60 * 60 * 1000;
+              const extDeadlineMs  = lastExtensionGrantedAt
+                ? new Date(lastExtensionGrantedAt).getTime() + EXTENSION_HOURS * 60 * 60 * 1000
+                : -Infinity;
+              const deadlineAt = new Date(Math.max(baseDeadlineMs, extDeadlineMs));
               const hoursRemaining = hoursBetween(now, deadlineAt);
               console.log(`  ⏱  ${hoursRemaining.toFixed(2)}h remaining until deadline (${deadlineAt.toISOString()}) for @${assignee}`);
 
