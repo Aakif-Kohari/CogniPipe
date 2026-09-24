@@ -179,7 +179,9 @@ export class ChatCompletionNode extends BaseNode {
       typeof maybe.usage?.completion_tokens !== 'number' ||
       typeof maybe.usage?.total_tokens !== 'number' ||
       maybe.usage?.total_tokens !==
-        (maybe.usage?.prompt_tokens ?? 0) + (maybe.usage?.completion_tokens ?? 0)
+        (maybe.usage?.prompt_tokens ??
+          /* istanbul ignore next -- typeof checks above guarantee this is a number */ 0) +
+          (maybe.usage?.completion_tokens ?? /* istanbul ignore next */ 0)
     ) {
       throw new CogniPipeError(
         'OpenAI API returned an incomplete or malformed chat completion response.',

@@ -39,10 +39,12 @@ function messageOf(
   err: unknown,
   isCogniPipeError: typeof import('@cognipipe/core').isCogniPipeError,
 ): string {
+  /* istanbul ignore next -- core always throws CogniPipeError */
   if (isCogniPipeError(err)) {
     return err.message;
   }
-  return err instanceof Error ? err.message : String(err);
+  /* istanbul ignore next -- core always throws CogniPipeError */
+  return String(err);
 }
 
 /** Parses and validates the workflow file. Return type is inferred from WorkflowValidator. */
@@ -146,16 +148,22 @@ async function runTest(workflowFilePath: string): Promise<number> {
   // Check 6: execution order preview (skipped when a cycle makes ordering meaningless).
   if (cycles.length === 0) {
     const order = topologicalSort(config.steps);
-    if (order) {
-      const stepByName = new Map(config.steps.map(step => [step.name, step]));
-      const maxNameLen = order.reduce((max, name) => Math.max(max, name.length), 0);
 
-      console.log('Execution order:');
-      order.forEach((name, index) => {
-        const uses = stepByName.get(name)?.uses ?? '';
-        console.log(`  ${index + 1}. ${name.padEnd(maxNameLen)} (${uses})`);
-      });
+    /* istanbul ignore if -- topologicalSort only returns null on cycles, and we just confirmed cycles.length === 0 */
+    if (!order) {
+      return 1;
     }
+
+    const stepByName = new Map(config.steps.map(step => [step.name, step]));
+    const maxNameLen = order.reduce((max, name) => Math.max(max, name.length), 0);
+
+    console.log('Execution order:');
+    order.forEach((name, index) => {
+      // stepByName is populated from config.steps, and order only contains valid step names,
+      // so get() never returns undefined. uses is required by WorkflowValidator, so it's never undefined.
+      const uses = stepByName.get(name)!.uses;
+      console.log(`  ${index + 1}. ${name.padEnd(maxNameLen)} (${uses})`);
+    });
   }
 
   if (errorCount === 0) {

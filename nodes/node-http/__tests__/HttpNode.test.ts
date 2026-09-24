@@ -205,6 +205,26 @@ describe('HttpNode', () => {
       expect(typeof output.body).toBe('string');
       expect(output.body).toBe(JSON.stringify('plain text response'));
     });
+
+    it('should fall back to an empty content-type when the header is absent', async () => {
+      const mockResp = {
+        status: 200,
+        statusText: 'OK',
+        ok: true,
+        headers: new Headers(), // no content-type set at all
+        json: jest.fn(),
+        text: jest.fn(async () => 'raw body'),
+      } as unknown as Response;
+      mockFetch.mockResolvedValueOnce(mockResp);
+
+      const node = new HttpNode();
+      const output = (await node.execute(
+        { url: 'https://api.example.com/data' },
+        mockContext,
+      )) as HttpNodeOutput;
+
+      expect(output.body).toBe('raw body');
+    });
   });
 
   describe('happy path: response status codes', () => {
@@ -458,6 +478,19 @@ describe('HttpNode', () => {
         await node.execute({ url: 'https://api.example.com/data' }, mockContext);
       } catch (err) {
         expect((err as CogniPipeError).message).toContain('https://api.example.com/data');
+      }
+    });
+
+    it('should throw STEP_EXECUTION_FAILED with a stringified message on a non-Error fetch rejection', async () => {
+      expect.assertions(2);
+      mockFetch.mockRejectedValueOnce('raw string failure');
+
+      const node = new HttpNode();
+      try {
+        await node.execute({ url: 'https://api.example.com' }, mockContext);
+      } catch (err) {
+        expect(err).toBeInstanceOf(CogniPipeError);
+        expect((err as CogniPipeError).message).toContain('raw string failure');
       }
     });
   });

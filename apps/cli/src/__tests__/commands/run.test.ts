@@ -19,6 +19,29 @@ jest.unstable_mockModule('@cognipipe/core', () => {
   };
 });
 
+jest.unstable_mockModule(
+  '@cognipipe/node-fake-single-match',
+  () => ({
+    MatchingNode: class {
+      static cogniNodeMeta = { type: '@cognipipe/node-fake-single-match' };
+    },
+  }),
+  { virtual: true },
+);
+
+jest.unstable_mockModule(
+  '@cognipipe/node-fake-ambiguous',
+  () => ({
+    NodeA: class {
+      static cogniNodeMeta = { type: '@cognipipe/node-fake-ambiguous' };
+    },
+    NodeB: class {
+      static cogniNodeMeta = { type: '@cognipipe/node-fake-ambiguous' };
+    },
+  }),
+  { virtual: true },
+);
+
 // Both the mocked package's real exports (CogniPipeError, error codes) and the
 // module under test must be loaded via dynamic import, AFTER the mock is
 // registered above — a static `import` here would race the mock, exactly like
@@ -161,6 +184,18 @@ describe('cognipipe run', () => {
     );
   });
 
+  it('exits 1 and stringifies a non-Error thrown value', async () => {
+    mockParseFile.mockRejectedValue('raw string failure');
+
+    const exitCode = await run(['workflow.yaml']);
+
+    expect(exitCode).toBe(1);
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Unexpected error'),
+      'raw string failure',
+    );
+  });
+
   it('registers a node exported with a matching cogniNodeMeta.type and skips uninstalled packages', async () => {
     mockParseFile.mockResolvedValue({});
     mockValidate.mockReturnValue(
@@ -175,5 +210,50 @@ describe('cognipipe run', () => {
 
     expect(exitCode).toBe(0);
     expect(mockRegister).not.toHaveBeenCalled();
+  });
+
+  it('registers a node whose export has a single matching cogniNodeMeta.type', async () => {
+    mockParseFile.mockResolvedValue({});
+    mockValidate.mockReturnValue(
+      makeConfig([{ name: 'a', uses: '@cognipipe/node-fake-single-match' }]),
+    );
+    mockRun.mockResolvedValue(makeExecutionResult());
+
+    const exitCode = await run(['workflow.yaml']);
+
+    expect(exitCode).toBe(0);
+    expect(mockRegister).toHaveBeenCalledWith(
+      '@cognipipe/node-fake-single-match',
+      expect.any(Function),
+    );
+  });
+
+  it('skips registration when a package exports two classes with the same cogniNodeMeta.type', async () => {
+    mockParseFile.mockResolvedValue({});
+    mockValidate.mockReturnValue(
+      makeConfig([{ name: 'a', uses: '@cognipipe/node-fake-ambiguous' }]),
+    );
+    mockRun.mockResolvedValue(makeExecutionResult());
+
+    const exitCode = await run(['workflow.yaml']);
+
+    expect(exitCode).toBe(0);
+    expect(mockRegister).not.toHaveBeenCalled();
+  });
+
+  it('prints error context details when a thrown CogniPipeError includes a context object', async () => {
+    mockParseFile.mockResolvedValue({});
+    mockValidate.mockReturnValue(makeConfig());
+    mockRun.mockRejectedValue(
+      new CogniPipeError('Node not registered', {
+        code: COGNIPIPE_ERROR_CODES.NODE_NOT_REGISTERED,
+        context: { stepName: 'step-1', uses: 'commander' },
+      }),
+    );
+
+    const exitCode = await run(['workflow.yaml']);
+
+    expect(exitCode).toBe(1);
+    expect(errorSpy).toHaveBeenCalledWith('   Details:', expect.stringContaining('step-1'));
   });
 });

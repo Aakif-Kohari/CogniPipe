@@ -267,4 +267,29 @@ describe('EmbeddingNode', () => {
       (EmbeddingNode as unknown as { cogniNodeMeta?: { type: string } }).cogniNodeMeta?.type,
     ).toBe('@cognipipe/node-openai-embedding');
   });
+
+  it('throws CogniPipeError(STEP_EXECUTION_FAILED) with a stringified message on a non-Error fetch rejection', async () => {
+    global.fetch = jest.fn().mockRejectedValue('raw string failure');
+
+    await expect(node.execute(baseConfig, mockCtx)).rejects.toMatchObject({
+      code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+      message: expect.stringContaining('raw string failure'),
+    });
+  });
+
+  it('throws CogniPipeError(STEP_EXECUTION_FAILED) with a stringified message when response.json() rejects with a non-Error', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw 'raw json failure';
+      },
+      text: async () => '',
+    } as unknown as Response);
+
+    await expect(node.execute(baseConfig, mockCtx)).rejects.toMatchObject({
+      code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+      message: expect.stringContaining('raw json failure'),
+    });
+  });
 });

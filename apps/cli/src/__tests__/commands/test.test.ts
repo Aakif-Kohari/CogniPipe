@@ -112,6 +112,24 @@ steps:
     expect(output).toContain('does-not-exist');
   });
 
+  it('exits 1 and uses plural "references" when multiple dependsOn entries are invalid', async () => {
+    const file = writeWorkflow(
+      'multi-bad-ref.yaml',
+      `
+name: daily-report
+version: 1.0.0
+steps:
+  - name: fetch-data
+    uses: commander
+    config: {}
+    dependsOn: [missing-1, missing-2]
+`,
+    );
+    const { exitCode, output } = await run(file);
+    expect(exitCode).toBe(1);
+    expect(output).toContain('2 invalid references');
+  });
+
   it('exits 1 and shows the cycle path when there is a circular dependency', async () => {
     const file = writeWorkflow(
       'cycle.yaml',
@@ -135,10 +153,40 @@ steps:
     expect(output).toContain('a → b → a');
   });
 
+  it('exits 1 and uses plural "cycles" when there are multiple independent cycles', async () => {
+    const file = writeWorkflow(
+      'multi-cycle.yaml',
+      `
+name: daily-report
+version: 1.0.0
+steps:
+  - name: a
+    uses: commander
+    config: {}
+    dependsOn: [b]
+  - name: b
+    uses: commander
+    config: {}
+    dependsOn: [a]
+  - name: c
+    uses: commander
+    config: {}
+    dependsOn: [d]
+  - name: d
+    uses: commander
+    config: {}
+    dependsOn: [c]
+`,
+    );
+    const { exitCode, output } = await run(file);
+    expect(exitCode).toBe(1);
+    expect(output).toContain('2 cycles detected');
+  });
+
   it('exits 1 with a parse error message when the file does not exist', async () => {
     const { exitCode, output } = await run(join(dir, 'does-not-exist.yaml'));
     expect(exitCode).toBe(1);
-    expect(output).toContain('Failed to read workflow file');
+    expect(output).toContain('Workflow file not found');
   });
 
   it('exits 1 with a validation error message when the workflow structure is invalid', async () => {

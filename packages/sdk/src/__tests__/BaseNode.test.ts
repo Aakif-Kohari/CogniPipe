@@ -141,6 +141,47 @@ describe('BaseNode', () => {
       expect(thrown instanceof CogniPipeError).toBe(true);
       expect((thrown as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
     });
+
+    it('formats numeric path segments as array indices (e.g. items[1])', () => {
+      const node = new TestNode();
+      const Schema = z.object({ items: z.array(z.string()) });
+      let thrown: unknown;
+
+      try {
+        node.callValidateConfig(Schema, { items: ['ok', 123] });
+      } catch (err) {
+        thrown = err;
+      }
+
+      expect(thrown instanceof CogniPipeError).toBe(true);
+      expect((thrown as CogniPipeError).message).toContain('items[1]');
+    });
+
+    it('returns undefined for received when a custom refinement path continues below a primitive', () => {
+      const node = new TestNode();
+      const Schema = z.object({ url: z.string() }).superRefine((_data, ctx) => {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'protocol must be https',
+          path: ['url', 'protocol'],
+        });
+      });
+      let thrown: unknown;
+
+      try {
+        node.callValidateConfig(Schema, { url: 'http://insecure.example.com' });
+      } catch (err) {
+        thrown = err;
+      }
+
+      expect(thrown instanceof CogniPipeError).toBe(true);
+      expect((thrown as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
+      expect((thrown as CogniPipeError).message).toContain('url.protocol');
+      expect((thrown as CogniPipeError).context).toMatchObject({
+        path: 'url.protocol',
+        received: undefined,
+      });
+    });
   });
 
   describe('cogniNodeMeta (decorator mechanism)', () => {

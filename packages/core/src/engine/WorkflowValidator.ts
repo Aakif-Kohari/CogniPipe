@@ -39,6 +39,9 @@ export class WorkflowValidator {
     if (!result.success) {
       const issue = result.error.issues[0];
 
+      // istanbul ignore next -- Zod guarantees error.issues is non-empty on
+      // a failed safeParse(); this guard can't be hit without mocking Zod
+      // internals in a way that would test nothing real
       if (!issue) {
         throw new CogniPipeError('Workflow validation failed.', {
           code: COGNIPIPE_ERROR_CODES.WORKFLOW_VALIDATION_ERROR,
@@ -57,7 +60,7 @@ export class WorkflowValidator {
         (acc, seg) =>
           acc != null && typeof acc === 'object'
             ? (acc as Record<string | number, unknown>)[seg as string | number]
-            : undefined,
+            : /* istanbul ignore next -- WorkflowConfigSchema has no custom refinements; its paths cannot continue below a primitive */ undefined,
         raw,
       );
       const serialized = JSON.stringify(receivedValue);

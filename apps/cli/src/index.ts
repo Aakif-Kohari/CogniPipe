@@ -33,6 +33,9 @@ program.addCommand(createRunCommand());
 
 // Only call parse() when executed directly — not when imported in tests.
 // import.meta.url !== process.argv[1] guards against double-parse in jest.
+// istanbul ignore next -- only true when executed as a real compiled binary
+// (node dist/index.js), never true when this module is imported by Jest;
+// exercised by every actual `cognipipe` CLI invocation a real user makes
 if (process.argv[1] && fileURLToPath(import.meta.url) === realpathSync(process.argv[1])) {
   program.parse(process.argv);
 }
