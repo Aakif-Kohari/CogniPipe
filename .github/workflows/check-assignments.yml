@@ -82,10 +82,11 @@ jobs:
               for (const c of comments) {
                 const body = c.body || '';
 
+                const isOurBot = c.user?.type === 'Bot' && c.user?.login === 'github-actions[bot]';
                 const assignMatch = body.match(
                   /<!-- COGNIPIPE_ASSIGNED_AT:(.+?)\|ASSIGNEE:(.+?) -->/
                 );
-                if (assignMatch) {
+                if (isOurBot && assignMatch) {
                   assignedAt = assignMatch[1].trim();
                   assignee   = assignMatch[2].trim();
                   // New assignment cycle: drop any state carried over from a prior assignee
@@ -94,8 +95,6 @@ jobs:
                   extensionAlreadyGranted  = false;
                   pendingExtensionRequest  = null;
                 }
-
-                const isOurBot = c.user?.type === 'Bot' && c.user?.login === 'github-actions[bot]';
 
                 const warningMatch = isOurBot && body.match(/<!-- COGNIPIPE_36H_WARNING:(.+?) -->/);
                 if (warningMatch && !Number.isNaN(Date.parse(warningMatch[1].trim()))) {
