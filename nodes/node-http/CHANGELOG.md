@@ -1,5 +1,14 @@
 # @cognipipe/node-http
 
+## 0.1.5
+
+### Patch Changes
+
+- 0955fae: Close remaining test coverage gaps; no runtime behavior change.
+- Updated dependencies [0955fae]
+  - @cognipipe/core@0.2.1
+  - @cognipipe/sdk@0.1.3
+
 ## 0.1.4
 
 ### Patch Changes
