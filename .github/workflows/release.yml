@@ -5,6 +5,11 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+  queue: max
+
 permissions:
   contents: read
 
@@ -79,6 +84,15 @@ jobs:
             return 1
           }
 
+          changelog_entry() {
+            local pkg_dir="$1" version="$2"
+            awk -v ver="## ${version}" '
+              $0 == ver {found=1; next}
+              found && /^## / {exit}
+              found {print}
+            ' "${pkg_dir}/CHANGELOG.md" 2>/dev/null
+          }
+
           for pkg in packages/core packages/sdk packages/types apps/cli nodes/node-http; do
             if [ ! -f "${pkg}/package.json" ]; then
               echo "Skipping ${pkg}: no package.json"
@@ -118,10 +132,19 @@ jobs:
 
             if ! gh release view "$tag" >/dev/null 2>&1; then
               echo "Missing GitHub Release $tag — creating"
-              release_args=(--generate-notes)
+              release_args=()
               if [[ "$version" == *-* ]]; then
                 release_args+=(--prerelease)
               fi
+
+              notes="$(changelog_entry "$pkg" "$version")"
+              if [ -n "$notes" ]; then
+                echo "$notes" > /tmp/release-notes.md
+                release_args+=(--notes-file /tmp/release-notes.md)
+              else
+                release_args+=(--generate-notes)
+              fi
+
               gh release create "$tag" "${release_args[@]}"
             else
               echo "GitHub Release $tag already exists"
