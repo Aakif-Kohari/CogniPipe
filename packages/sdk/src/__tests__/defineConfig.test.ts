@@ -142,5 +142,30 @@ describe('defineConfig', () => {
         expect((err as CogniPipeError).context).toHaveProperty('received', null);
       }
     });
+
+    it('returns undefined for received when a custom refinement path continues below a primitive', () => {
+      expect.assertions(4);
+      const Config = defineConfig(
+        z.object({ url: z.string() }).superRefine((_data, ctx) => {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'protocol must be https',
+            path: ['url', 'protocol'],
+          });
+        }),
+      );
+
+      try {
+        Config.parse({ url: 'http://insecure.example.com' });
+      } catch (err) {
+        expect(err instanceof CogniPipeError).toBe(true);
+        expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
+        expect((err as CogniPipeError).message).toContain('url.protocol');
+        expect((err as CogniPipeError).context).toMatchObject({
+          path: 'url.protocol',
+          received: undefined,
+        });
+      }
+    });
   });
 });

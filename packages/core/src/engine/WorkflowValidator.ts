@@ -60,7 +60,7 @@ export class WorkflowValidator {
         (acc, seg) =>
           acc != null && typeof acc === 'object'
             ? (acc as Record<string | number, unknown>)[seg as string | number]
-            : /* istanbul ignore next -- Zod paths always traverse into objects; acc is never null/non-object mid-path */ undefined,
+            : /* istanbul ignore next -- WorkflowConfigSchema has no custom refinements; its paths cannot continue below a primitive */ undefined,
         raw,
       );
       const serialized = JSON.stringify(receivedValue);

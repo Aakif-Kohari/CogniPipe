@@ -98,7 +98,7 @@ export function defineConfig<T>(schema: ZodType<T>): ConfigDefinition<T> {
           (acc, seg) =>
             acc != null && typeof acc === 'object'
               ? (acc as Record<string | number, unknown>)[seg as string | number]
-              : /* istanbul ignore next -- Zod paths always traverse into objects; acc is never null/non-object mid-path */ undefined,
+              : undefined,
           raw,
         );
 
