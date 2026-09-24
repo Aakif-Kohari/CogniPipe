@@ -26,10 +26,12 @@ jobs:
             const repo  = context.repo.repo;
             const now   = new Date();
 
-            // ── Helper: hours elapsed since a date ──────────────────────────
-            function hoursElapsed(since) {
-              return (now - new Date(since)) / (1000 * 60 * 60);
+            // ── Helper: hours between two dates ──────────────────────────
+            function hoursBetween(a, b) {
+              return (b - a) / (1000 * 60 * 60);
             }
+
+            const EXTENSION_HOURS = 24;
 
             // ── Step 1: Fetch all open issues labelled 'assigned' ───────────
             const { data: issues } = await github.rest.issues.listForRepo({
@@ -70,34 +72,50 @@ jobs:
                 per_page: 100,
               });
 
-              let assignedAt        = null;
-              let assignee          = null;
-              let warningPosted     = false;
-              let extensionGranted  = false;
+              let assignedAt               = null;
+              let assignee                 = null;
+              let warningPostedForDeadline = null; // deadline ISO the last warning targeted
+              let lastExtensionGrantedAt   = null; // ISO, from our own bot-posted marker
+              let extensionAlreadyGranted  = false;
+              let pendingExtensionRequest  = null; // { requester } — not yet acknowledged
 
               for (const c of comments) {
                 const body = c.body || '';
 
-                // Parse our hidden timestamp marker
+                const isOurBot = c.user?.type === 'Bot' && c.user?.login === 'github-actions[bot]';
                 const assignMatch = body.match(
                   /<!-- COGNIPIPE_ASSIGNED_AT:(.+?)\|ASSIGNEE:(.+?) -->/
                 );
-                if (assignMatch) {
+                if (isOurBot && assignMatch) {
                   assignedAt = assignMatch[1].trim();
                   assignee   = assignMatch[2].trim();
+                  // New assignment cycle: drop any state carried over from a prior assignee
+                  warningPostedForDeadline = null;
+                  lastExtensionGrantedAt   = null;
+                  extensionAlreadyGranted  = false;
+                  pendingExtensionRequest  = null;
                 }
 
-                // Check if 36h warning was already posted
-                if (body.includes('<!-- COGNIPIPE_36H_WARNING -->')) {
-                  warningPosted = true;
+                const warningMatch = isOurBot && body.match(/<!-- COGNIPIPE_36H_WARNING:(.+?) -->/);
+                if (warningMatch && !Number.isNaN(Date.parse(warningMatch[1].trim()))) {
+                  warningPostedForDeadline = warningMatch[1].trim();
                 }
 
-                // Check if the assignee requested an extension
-                // We look for extension keywords from the assignee's own comments
-                if (
-                  assignees.includes(c.user.login) &&
-                  c.user.type !== 'Bot'
-                ) {
+                // Our own extension-grant marker — bot-posted, not the raw ask
+                const grantMatch = isOurBot && body.match(/<!-- COGNIPIPE_EXTENSION_GRANTED:(.+?) -->/);
+                if (grantMatch && !Number.isNaN(Date.parse(grantMatch[1].trim()))) {
+                  lastExtensionGrantedAt  = grantMatch[1].trim();
+                  extensionAlreadyGranted = true;
+                  pendingExtensionRequest = null; // this bot reply resolves any earlier request
+                }
+
+                // Our own escalation reply also resolves the pending request
+                if (isOurBot && body.includes('<!-- COGNIPIPE_SECOND_EXTENSION_FLAGGED -->')) {
+                  pendingExtensionRequest = null;
+                }
+
+                // Detect a fresh, not-yet-handled extension request from the assignee
+                if (assignees.includes(c.user.login) && c.user.type !== 'Bot') {
                   const bodyLower = body.toLowerCase();
                   const extensionKeywords = [
                     'extension', 'extend', 'more time', 'need more',
@@ -105,20 +123,15 @@ jobs:
                     'still on it', 'please extend',
                   ];
                   if (extensionKeywords.some(kw => bodyLower.includes(kw))) {
-                    extensionGranted = true;
-                    console.log(`  ✅ Extension requested by @${c.user.login}`);
+                    pendingExtensionRequest = { requester: c.user.login };
                   }
                 }
               }
 
-              // If we couldn't find our marker, skip (manual assignment, no clock)
               if (!assignedAt || !assignee) {
                 console.log(`  ⚠️  No COGNIPIPE_ASSIGNED_AT marker found — skipping.`);
                 continue;
               }
-
-              const elapsed = hoursElapsed(assignedAt);
-              console.log(`  ⏱  ${elapsed.toFixed(2)}h elapsed since assignment of @${assignee}`);
 
               // ── Step 3: Check if a PR has been linked ──────────────────────
               const { data: timeline } = await github.rest.issues.listEventsForTimeline({
@@ -139,18 +152,64 @@ jobs:
                 continue;
               }
 
-              if (extensionGranted) {
-                console.log(`  ✅ Extension active — resetting clock implicitly.`);
-                // NOTE: In a future enhancement, you could parse a new deadline
-                // from a maintainer's reply. For now we simply skip enforcement.
-                continue;
+              // ── Step 4: Acknowledge a fresh extension request, visibly ──────
+              if (pendingExtensionRequest) {
+                if (!extensionAlreadyGranted) {
+                  const grantedAt      = now.toISOString();
+                  const baseDeadlineMs = new Date(assignedAt).getTime() + 48 * 60 * 60 * 1000;
+                  const extDeadlineMs  = now.getTime() + EXTENSION_HOURS * 60 * 60 * 1000;
+                  const newDeadline    = new Date(Math.max(baseDeadlineMs, extDeadlineMs));
+
+                  console.log(`  ✅ Granting ${EXTENSION_HOURS}h extension requested by @${pendingExtensionRequest.requester}`);
+
+                  await github.rest.issues.createComment({
+                    owner, repo, issue_number: issueNum,
+                    body: [
+                      `<!-- COGNIPIPE_EXTENSION_GRANTED:${grantedAt} -->`,
+                      ``,
+                      `✅ **Extension granted, @${pendingExtensionRequest.requester}!**`,
+                      ``,
+                      `You now have until **${newDeadline.toUTCString()}** (about ${EXTENSION_HOURS} more hours from now) before this issue would be automatically unassigned.`,
+                      ``,
+                      `This is a one-time automatic extension per assignment. If you need more time after this, reply here again — I'll flag it for a maintainer to look at directly rather than guessing.`,
+                      ``,
+                      `> *Automated reply by CogniPipeBot.*`,
+                    ].join(`\n`),
+                  });
+
+                  lastExtensionGrantedAt  = grantedAt;
+                  extensionAlreadyGranted = true;
+                } else {
+                  console.log(`  ℹ️  @${pendingExtensionRequest.requester} asked again after already receiving one automatic extension — flagging for maintainer.`);
+
+                  await github.rest.issues.createComment({
+                    owner, repo, issue_number: issueNum,
+                    body: [
+                      `<!-- COGNIPIPE_SECOND_EXTENSION_FLAGGED -->`,
+                      ``,
+                      `👋 @${pendingExtensionRequest.requester} — this issue already received one automatic extension, so I can't grant a second one on my own.`,
+                      ``,
+                      `I've flagged this thread for @${owner} to take a look directly — hang tight!`,
+                      ``,
+                      `> *Automated reply by CogniPipeBot.*`,
+                    ].join(`\n`),
+                  });
+                }
               }
 
-              // ── Step 4: Apply enforcement actions ─────────────────────────
+              // ── Step 5: Compute the effective deadline for this cycle ───────
+              const baseDeadlineMs = new Date(assignedAt).getTime() + 48 * 60 * 60 * 1000;
+              const extDeadlineMs  = lastExtensionGrantedAt
+                ? new Date(lastExtensionGrantedAt).getTime() + EXTENSION_HOURS * 60 * 60 * 1000
+                : -Infinity;
+              const deadlineAt = new Date(Math.max(baseDeadlineMs, extDeadlineMs));
+              const hoursRemaining = hoursBetween(now, deadlineAt);
+              console.log(`  ⏱  ${hoursRemaining.toFixed(2)}h remaining until deadline (${deadlineAt.toISOString()}) for @${assignee}`);
 
-              // 48h deadline: UNASSIGN
-              if (elapsed >= 48) {
-                console.log(`  🔴 48h exceeded — unassigning @${assignee}`);
+              // ── Step 6: Apply enforcement actions ─────────────────────────
+
+              if (hoursRemaining <= 0) {
+                console.log(`  🔴 Deadline reached — unassigning @${assignee}`);
 
                 await github.rest.issues.removeAssignees({
                   owner, repo, issue_number: issueNum, assignees: [assignee],
@@ -167,9 +226,9 @@ jobs:
                   body: [
                     `<!-- COGNIPIPE_UNASSIGNED -->`,
                     ``,
-                    `⏰ **48-hour deadline reached.**`,
+                    `⏰ **Deadline reached.**`,
                     ``,
-                    `@${assignee} has been automatically **unassigned** from this issue. No commit or Draft PR was linked within the 48-hour window, and no extension was requested.`,
+                    `@${assignee} has been automatically **unassigned** from this issue. No commit or Draft PR was linked in time${extensionAlreadyGranted ? ', even with the automatic extension already applied' : ''}.`,
                     ``,
                     `🔓 This issue is now **open for anyone to claim!**`,
                     `Comment \`.take\` or \`!assign\` below to get started.`,
@@ -180,16 +239,15 @@ jobs:
                   ].join(`\n`),
                 });
 
-              // 36h mark: WARNING (only post once)
-              } else if (elapsed >= 36 && !warningPosted) {
-                console.log(`  🟡 36h reached — posting warning to @${assignee}`);
+              } else if (hoursRemaining <= 12 && warningPostedForDeadline !== deadlineAt.toISOString()) {
+                console.log(`  🟡 12h-before-deadline mark reached — posting warning to @${assignee}`);
 
-                const remainingHours = Math.ceil(48 - elapsed);
+                const remainingHours = Math.ceil(hoursRemaining);
 
                 await github.rest.issues.createComment({
                   owner, repo, issue_number: issueNum,
                   body: [
-                    `<!-- COGNIPIPE_36H_WARNING -->`,
+                    `<!-- COGNIPIPE_36H_WARNING:${deadlineAt.toISOString()} -->`,
                     ``,
                     `⚠️ **Heads-up, @${assignee}!**`,
                     ``,
@@ -200,14 +258,14 @@ jobs:
                     `2. 💾 Push a **commit** mentioning \`#${issueNum}\` in the message`,
                     `3. 💬 Reply here with **"I need an extension"** — we're happy to accommodate!`,
                     ``,
-                    `No response = auto-unassignment at the 48h mark. 🤖`,
+                    `No response = auto-unassignment when the deadline hits. 🤖`,
                     ``,
                     `> *Automated reminder by CogniPipeBot.*`,
                   ].join(`\n`),
                 });
 
               } else {
-                console.log(`  🟢 ${elapsed.toFixed(1)}h elapsed — within limits.`);
+                console.log(`  🟢 ${hoursRemaining.toFixed(1)}h remaining — within limits.`);
               }
             }
 
