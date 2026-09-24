@@ -60,6 +60,7 @@ export function detectCycles(steps: Array<{ name: string; dependsOn?: string[] }
 
     while (stack.length > 0) {
       const frame = stack[stack.length - 1];
+      /* istanbul ignore if -- stack is only popped after a non-empty check */
       if (!frame) {
         break;
       }
@@ -87,7 +88,7 @@ export function detectCycles(steps: Array<{ name: string; dependsOn?: string[] }
       if (depColor === 'GRAY') {
         // Found a back-edge into a node still on the current path — that's a cycle.
         const cycleStart = frame.path.indexOf(dep);
-        const cyclePath = frame.path.slice(cycleStart === -1 ? 0 : cycleStart).concat(dep);
+        const cyclePath = frame.path.slice(Math.max(0, cycleStart)).concat(dep);
         cycles.push(`Circular dependency: ${cyclePath.join(' → ')}`);
         continue;
       }
@@ -165,8 +166,11 @@ export function topologicalSort(
       if (!stepNames.has(dep)) {
         continue;
       }
-      inDegree.set(step.name, (inDegree.get(step.name) ?? 0) + 1);
-      dependents.get(dep)?.push(step.name);
+      // inDegree is initialized for every step name above, so get() is never undefined
+      inDegree.set(step.name, inDegree.get(step.name)! + 1);
+      // dependents is initialized for every step name, and `dep` is guaranteed to be
+      // in stepNames due to the guard above, so get() is never undefined
+      dependents.get(dep)!.push(step.name);
     }
   }
 
@@ -181,16 +185,14 @@ export function topologicalSort(
   let head = 0;
 
   while (head < queue.length) {
-    const current = queue[head];
+    const current = queue[head] as string;
     head += 1;
-    if (current === undefined) {
-      continue;
-    }
 
     result.push(current);
 
-    for (const dependent of dependents.get(current) ?? []) {
-      const nextDegree = (inDegree.get(dependent) ?? 0) - 1;
+    // dependents is initialized for every step name, so get() never returns undefined
+    for (const dependent of dependents.get(current)!) {
+      const nextDegree = inDegree.get(dependent)! - 1;
       inDegree.set(dependent, nextDegree);
       if (nextDegree === 0) {
         queue.push(dependent);

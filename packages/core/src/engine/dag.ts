@@ -59,10 +59,7 @@ export function detectCycles(steps: StepConfig[]): string[] {
     const stack: DfsFrame[] = [{ name: root.name, path: [root.name], depIndex: 0 }];
 
     while (stack.length > 0) {
-      const frame = stack[stack.length - 1];
-      if (!frame) {
-        break;
-      }
+      const frame = stack[stack.length - 1] as DfsFrame;
 
       const currentStep = stepByName.get(frame.name);
       const deps = currentStep?.dependsOn ?? [];
@@ -87,7 +84,7 @@ export function detectCycles(steps: StepConfig[]): string[] {
       if (depColor === 'GRAY') {
         // Found a back-edge into a node still on the current path — that's a cycle.
         const cycleStart = frame.path.indexOf(dep);
-        const cyclePath = frame.path.slice(cycleStart === -1 ? 0 : cycleStart).concat(dep);
+        const cyclePath = frame.path.slice(Math.max(0, cycleStart)).concat(dep);
         cycles.push(`Circular dependency: ${cyclePath.join(' → ')}`);
         continue;
       }

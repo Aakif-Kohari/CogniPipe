@@ -141,6 +141,21 @@ describe('BaseNode', () => {
       expect(thrown instanceof CogniPipeError).toBe(true);
       expect((thrown as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
     });
+
+    it('formats numeric path segments as array indices (e.g. items[1])', () => {
+      const node = new TestNode();
+      const Schema = z.object({ items: z.array(z.string()) });
+      let thrown: unknown;
+
+      try {
+        node.callValidateConfig(Schema, { items: ['ok', 123] });
+      } catch (err) {
+        thrown = err;
+      }
+
+      expect(thrown instanceof CogniPipeError).toBe(true);
+      expect((thrown as CogniPipeError).message).toContain('items[1]');
+    });
   });
 
   describe('cogniNodeMeta (decorator mechanism)', () => {

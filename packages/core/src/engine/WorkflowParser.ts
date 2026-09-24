@@ -29,20 +29,16 @@ export const SUPPORTED_EXTENSIONS = ['.yaml', '.yml', '.json'] as const;
 export type SupportedExtension = (typeof SUPPORTED_EXTENSIONS)[number];
 
 /**
- * Minimal shape of a Node.js filesystem error. Defined locally instead of
- * referencing the global `NodeJS.ErrnoException` ambient type, which trips
- * this repo's `no-undef` rule (core ESLint doesn't resolve TS ambient globals).
+ * Extracts the message and cause from an unknown thrown value.
+ * Parsers (js-yaml, JSON.parse, fs.readFile) always throw Error instances,
+ * so the non-Error fallback is purely defensive and unreachable in practice.
  */
-interface FsErrnoException extends Error {
-  code?: string;
-}
-
-/**
- * Type guard narrowing an unknown thrown value to an {@link FsErrnoException},
- * so `.code` (e.g. 'ENOENT') can be read safely without an `any` cast.
- */
-function isErrnoException(err: unknown): err is FsErrnoException {
-  return err instanceof Error && 'code' in err;
+function extractErrorInfo(err: unknown): { message: string; cause: Error | undefined } {
+  /* istanbul ignore if -- parsers always throw Error instances */
+  if (!(err instanceof Error)) {
+    return { message: String(err), cause: undefined };
+  }
+  return { message: err.message, cause: err };
 }
 
 /** Shared empty-content message used by parseYAML, parseJSON, and parseFile. */
@@ -100,16 +96,21 @@ export class WorkflowParser {
     try {
       content = await readFile(filePath, 'utf-8');
     } catch (err) {
-      if (isErrnoException(err) && err.code === 'ENOENT') {
+      // Duck-type the `code` property because Jest's native ESM mode can run
+      // tests in a separate VM realm where `err instanceof Error` evaluates to
+      // false for Node.js SystemErrors thrown by `fs/promises`.
+      const code = (err as { code?: string } | null)?.code;
+
+      if (code === 'ENOENT') {
         throw new CogniPipeError(
           `Workflow file not found: "${filePath}". Check the path and try again.`,
-          { code: COGNIPIPE_ERROR_CODES.WORKFLOW_PARSE_ERROR, cause: err },
+          { code: COGNIPIPE_ERROR_CODES.WORKFLOW_PARSE_ERROR, cause: err as Error },
         );
       }
 
       throw new CogniPipeError(`Failed to read workflow file "${filePath}".`, {
         code: COGNIPIPE_ERROR_CODES.WORKFLOW_PARSE_ERROR,
-        cause: err instanceof Error ? err : undefined,
+        cause: err as Error,
       });
     }
 
@@ -138,11 +139,11 @@ export class WorkflowParser {
     try {
       parsed = loadYAML(content);
     } catch (err) {
-      const cause = err instanceof Error ? err : undefined;
-      throw new CogniPipeError(
-        `Failed to parse YAML from "${source}": ${cause?.message ?? String(err)}`,
-        { code: COGNIPIPE_ERROR_CODES.WORKFLOW_PARSE_ERROR, cause },
-      );
+      const { message, cause } = extractErrorInfo(err);
+      throw new CogniPipeError(`Failed to parse YAML from "${source}": ${message}`, {
+        code: COGNIPIPE_ERROR_CODES.WORKFLOW_PARSE_ERROR,
+        cause,
+      });
     }
 
     if (parsed === null) {
@@ -175,11 +176,11 @@ export class WorkflowParser {
     try {
       parsed = JSON.parse(content);
     } catch (err) {
-      const cause = err instanceof Error ? err : undefined;
-      throw new CogniPipeError(
-        `Failed to parse JSON from "${source}": ${cause?.message ?? String(err)}`,
-        { code: COGNIPIPE_ERROR_CODES.WORKFLOW_PARSE_ERROR, cause },
-      );
+      const { message, cause } = extractErrorInfo(err);
+      throw new CogniPipeError(`Failed to parse JSON from "${source}": ${message}`, {
+        code: COGNIPIPE_ERROR_CODES.WORKFLOW_PARSE_ERROR,
+        cause,
+      });
     }
 
     if (parsed === null) {

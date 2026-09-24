@@ -96,7 +96,10 @@ export function createRunCommand(): Command {
 
         // 5. Output
         if (options.verbose) {
-          const steps = (result.context.toJSON()['steps'] as Record<string, unknown>) ?? {};
+          // istanbul ignore next -- WorkflowExecutor always stores 'steps' in context; the ?? {} fallback is unreachable
+          const steps =
+            (result.context.toJSON()['steps'] as Record<string, unknown>) ??
+            /* istanbul ignore next */ {};
           for (const [name, stepResult] of Object.entries(steps)) {
             console.log(`✅ ${name}:`, JSON.stringify(stepResult, null, 2));
           }

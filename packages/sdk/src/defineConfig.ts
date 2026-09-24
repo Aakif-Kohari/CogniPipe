@@ -77,6 +77,9 @@ export function defineConfig<T>(schema: ZodType<T>): ConfigDefinition<T> {
       if (!result.success) {
         const issue = result.error.issues[0];
 
+        // istanbul ignore next -- Zod guarantees error.issues is non-empty on
+        // a failed safeParse(); this guard can't be hit without mocking Zod
+        // internals in a way that would test nothing real
         if (!issue) {
           throw new CogniPipeError('Node config validation failed.', {
             code: COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID,
@@ -95,7 +98,7 @@ export function defineConfig<T>(schema: ZodType<T>): ConfigDefinition<T> {
           (acc, seg) =>
             acc != null && typeof acc === 'object'
               ? (acc as Record<string | number, unknown>)[seg as string | number]
-              : undefined,
+              : /* istanbul ignore next -- Zod paths always traverse into objects; acc is never null/non-object mid-path */ undefined,
           raw,
         );
 

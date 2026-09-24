@@ -20,6 +20,16 @@ class ThrowingNode implements IBaseNode {
   }
 }
 
+class ThrowingNonErrorNode implements IBaseNode {
+  constructor() {
+    throw 'raw constructor failure';
+  }
+
+  async execute(_config: NodeConfig, _ctx: IExecutionContext): Promise<NodeOutput> {
+    return {};
+  }
+}
+
 function expectRegistryError(
   fn: () => unknown,
   code: keyof typeof COGNIPIPE_ERROR_CODES,
@@ -119,6 +129,18 @@ describe('NodeRegistry', () => {
       );
       expect(err.cause).toBeInstanceOf(Error);
       expect((err.cause as Error).message).toBe('constructor failure');
+    });
+
+    it('wraps a non-Error constructor throw in NODE_INSTANTIATION_FAILED with cause undefined', () => {
+      const registry = new NodeRegistry();
+      registry.register('@cognipipe/node-throw-raw', ThrowingNonErrorNode);
+
+      const err = expectRegistryError(
+        () => registry.instantiate('@cognipipe/node-throw-raw'),
+        'NODE_INSTANTIATION_FAILED',
+      );
+      expect(err.cause).toBeUndefined();
+      expect(err.message).toContain('raw constructor failure');
     });
   });
 
