@@ -1,5 +1,13 @@
 # cognipipe
 
+## 0.1.3
+
+### Patch Changes
+
+- 0955fae: Close remaining test coverage gaps; no runtime behavior change.
+- Updated dependencies [0955fae]
+  - @cognipipe/core@0.2.1
+
 ## 0.1.2
 
 ### Patch Changes
