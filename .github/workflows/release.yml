@@ -5,6 +5,11 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+  queue: max
+
 permissions:
   contents: read
 
@@ -39,6 +44,7 @@ jobs:
         run: pnpm turbo build
 
       - name: Create Release PR or Publish
+        id: changesets
         uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1
         with:
           publish: pnpm changeset publish
@@ -48,3 +54,99 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # NOTE: NO NODE_AUTH_TOKEN or NPM_TOKEN here. OIDC handles it.
+
+      - name: Backfill any tags changesets/action missed
+        if: steps.changesets.outcome == 'success' && steps.changesets.outputs.hasChangesets == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git fetch --tags --force
+          # Deliberately reads each package's own package.json rather than
+          # trusting changesets/action's publishedPackages output — if the
+          # action's own npm-publish-output parsing is what's broken (see
+          # PR description), that output could be wrong too. Add newly
+          # published packages to this list as they go public (e.g.
+          # nodes/node-openai, once it's no longer private).
+
+          npm_has_version() {
+            local spec="$1"
+            local attempt
+
+            for attempt in $(seq 1 20); do
+              if npm view "$spec" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
+                return 0
+              fi
+              if [ "$attempt" -lt 20 ]; then
+                sleep 15
+              fi
+            done
+
+            return 1
+          }
+
+          changelog_entry() {
+            local pkg_dir="$1" version="$2"
+            awk -v ver="## ${version}" '
+              $0 == ver {found=1; next}
+              found && /^## / {exit}
+              found {print}
+            ' "${pkg_dir}/CHANGELOG.md" 2>/dev/null
+          }
+
+          for pkg in packages/core packages/sdk packages/types apps/cli nodes/node-http; do
+            if [ ! -f "${pkg}/package.json" ]; then
+              echo "Skipping ${pkg}: no package.json"
+              continue
+            fi
+
+            name=$(node -p "require('./${pkg}/package.json').name")
+            version=$(node -p "require('./${pkg}/package.json').version")
+            private=$(node -p "require('./${pkg}/package.json').private === true ? 'true' : 'false'")
+            tag="${name}@${version}"
+
+            if [ "$private" = "true" ]; then
+              echo "Skipping private package $tag"
+              continue
+            fi
+
+            echo "Checking npm for $tag"
+
+            # NOTE: if npm propagation somehow still isn't visible after this retry
+            # budget, the step skips (see ::warning:: above) rather than risk tagging
+            # the wrong commit on a later, unrelated run. This is a deliberate
+            # tradeoff — reconstructing the true publish commit after the fact isn't
+            # reliably possible from this workflow. Escalate to manual backfill (as
+            # done historically) if this warning ever actually fires.
+            if ! npm_has_version "${name}@${version}"; then
+              echo "::warning::$tag is not confirmed on npm; skipping tag/release backfill"
+              continue
+            fi
+
+            if ! git ls-remote --exit-code origin "refs/tags/$tag" >/dev/null 2>&1; then
+              echo "Missing remote tag $tag — creating"
+              git tag -f "$tag"
+              git push origin "refs/tags/$tag"
+            else
+              echo "Remote tag $tag already exists"
+            fi
+
+            if ! gh release view "$tag" >/dev/null 2>&1; then
+              echo "Missing GitHub Release $tag — creating"
+              release_args=()
+              if [[ "$version" == *-* ]]; then
+                release_args+=(--prerelease)
+              fi
+
+              notes="$(changelog_entry "$pkg" "$version")"
+              if [ -n "$notes" ]; then
+                echo "$notes" > /tmp/release-notes.md
+                release_args+=(--notes-file /tmp/release-notes.md)
+              else
+                release_args+=(--generate-notes)
+              fi
+
+              gh release create "$tag" "${release_args[@]}"
+            else
+              echo "GitHub Release $tag already exists"
+            fi
+          done
