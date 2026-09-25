@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: Detect assignment trigger phrase
         id: detect
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const comment = context.payload.comment.body
@@ -77,7 +77,7 @@ jobs:
       - name: Check current assignment status
         id: check-status
         if: steps.detect.outputs.triggered == 'true'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const issue    = context.payload.issue;
@@ -96,7 +96,7 @@ jobs:
       - name: Check blocked status
         id: check-blocked
         if: steps.detect.outputs.triggered == 'true'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const labels = context.payload.issue.labels.map(l => l.name);
@@ -109,7 +109,7 @@ jobs:
           steps.detect.outputs.triggered == 'true' &&
           steps.check-status.outputs.status == 'available' &&
           steps.check-blocked.outputs.blocked == 'false'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const commenter  = '${{ steps.detect.outputs.commenter }}';
@@ -167,7 +167,7 @@ jobs:
         if: >
           steps.detect.outputs.triggered == 'true' &&
           steps.check-blocked.outputs.blocked == 'true'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             await github.rest.issues.createComment({
@@ -182,7 +182,7 @@ jobs:
         if: >
           steps.detect.outputs.triggered == 'true' &&
           steps.check-status.outputs.status == 'self'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const commenter = '${{ steps.detect.outputs.commenter }}';
@@ -198,7 +198,7 @@ jobs:
         if: >
           steps.detect.outputs.triggered == 'true' &&
           steps.check-status.outputs.status == 'taken'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const commenter       = '${{ steps.detect.outputs.commenter }}';
