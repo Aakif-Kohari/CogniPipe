@@ -3,7 +3,7 @@ language: en-US
 
 reviews:
   profile: chill # "chill" is less nitpicky than "assertive" — good for a young project
-  request_changes_workflow: false # keep manual merge control — CodeRabbit only comments, never blocks
+  request_changes_workflow: true # CodeRabbit now submits a real GitHub review (Request Changes / Approve), so it shows up in the Reviewers sidebar like a human reviewer — not just a check run
   high_level_summary: true
   poem: false # CodeRabbit adds a fun poem to PR summaries by default — turn off if you want it purely professional
   auto_review:
