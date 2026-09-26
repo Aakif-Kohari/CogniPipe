@@ -346,6 +346,11 @@ export class WorkflowExecutor {
     }
 
     // 5. Return the final context and any accumulated step errors.
+    // Sort errors by declaration order to ensure deterministic output regardless
+    // of which independent continueOnError step finishes first.
+    const order = new Map(config.steps.map((s, i) => [s.name, i]));
+    stepErrors.sort((a, b) => order.get(a.stepName)! - order.get(b.stepName)!);
+
     return { context: ctx, stepErrors };
   }
 
