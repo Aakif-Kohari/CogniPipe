@@ -1,5 +1,12 @@
 # cognipipe
 
+## 0.1.4
+
+### Patch Changes
+
+- Updated dependencies [75137a0]
+  - @cognipipe/core@0.3.0
+
 ## 0.1.3
 
 ### Patch Changes
