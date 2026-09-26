@@ -1,5 +1,11 @@
 # @cognipipe/core
 
+## 0.3.0
+
+### Minor Changes
+
+- 75137a0: Implement DAG-based parallel step execution. Steps without unmet `dependsOn` entries now run concurrently.
+
 ## 0.2.1
 
 ### Patch Changes
