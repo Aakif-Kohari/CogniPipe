@@ -100,6 +100,10 @@ describe('WorkflowExecutor', () => {
           name: 'step-b',
           uses: '@cognipipe/node-echo',
           config: { received: '{{ steps.step-a.output.echoed.value }}' },
+          // Reading step-a's output requires an explicit dependency under
+          // the DAG scheduler — a step with no `dependsOn` is eligible to
+          // run immediately, concurrently with step-a, not "after" it.
+          dependsOn: ['step-a'],
         },
       ]);
 
@@ -504,6 +508,7 @@ describe('WorkflowExecutor', () => {
           name: 'next',
           uses: '@cognipipe/node-echo',
           config: { x: '{{ steps.prev.output.echoed.value }}' },
+          dependsOn: ['prev'],
         },
       ]);
 
@@ -551,6 +556,7 @@ describe('WorkflowExecutor', () => {
           name: 'call',
           uses: '@cognipipe/node-echo',
           config: { headers: { 'x-token': '{{ steps.auth.output.echoed.token }}' } },
+          dependsOn: ['auth'],
         },
       ]);
 
@@ -573,6 +579,7 @@ describe('WorkflowExecutor', () => {
           name: 'b',
           uses: '@cognipipe/node-echo',
           config: { list: ['{{ steps.a.output.echoed.x }}', 'literal'] },
+          dependsOn: ['a'],
         },
       ]);
 
@@ -1001,6 +1008,493 @@ describe('WorkflowExecutor', () => {
       await runPromise;
 
       expect(created?.calls).toBe(3);
+    });
+  });
+
+  describe('parallel execution (DAG-based)', () => {
+    it('runs two independent steps concurrently — both start before either completes', async () => {
+      const registry = new NodeRegistry();
+      const callOrder: string[] = [];
+      const resolvers: Array<() => void> = [];
+
+      class DelayedNodeA implements IBaseNode {
+        async execute(): Promise<NodeOutput> {
+          callOrder.push('start-a');
+          await new Promise<void>(resolve => resolvers.push(resolve));
+          callOrder.push('end-a');
+          return { ok: true };
+        }
+      }
+
+      class DelayedNodeB implements IBaseNode {
+        async execute(): Promise<NodeOutput> {
+          callOrder.push('start-b');
+          await new Promise<void>(resolve => resolvers.push(resolve));
+          callOrder.push('end-b');
+          return { ok: true };
+        }
+      }
+
+      registry.register('@cognipipe/node-delayed-a', DelayedNodeA);
+      registry.register('@cognipipe/node-delayed-b', DelayedNodeB);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        { name: 'a', uses: '@cognipipe/node-delayed-a', config: {} },
+        { name: 'b', uses: '@cognipipe/node-delayed-b', config: {} },
+      ]);
+
+      const runPromise = executor.run(config);
+
+      // Wait (via microtask flushes) until both nodes have started, without
+      // resolving either — a sequential executor would never reach 'start-b'
+      // until node A's execute() had already resolved.
+      for (let i = 0; i < 50 && resolvers.length < 2; i++) {
+        await Promise.resolve();
+      }
+
+      expect(callOrder).toContain('start-a');
+      expect(callOrder).toContain('start-b');
+      expect(callOrder.filter(c => c.startsWith('end'))).toHaveLength(0);
+
+      resolvers.forEach(r => r());
+      await runPromise;
+    });
+
+    it('a step with dependsOn: ["a"] does not start until "a" completes', async () => {
+      const registry = new NodeRegistry();
+      const timestamps: Record<string, number> = {};
+
+      class TimedNodeA implements IBaseNode {
+        async execute(): Promise<NodeOutput> {
+          timestamps['start-a'] = Date.now();
+          await new Promise(resolve => setTimeout(resolve, 50));
+          timestamps['end-a'] = Date.now();
+          return { ok: true };
+        }
+      }
+
+      class TimedNodeB implements IBaseNode {
+        async execute(): Promise<NodeOutput> {
+          timestamps['start-b'] = Date.now();
+          return { ok: true };
+        }
+      }
+
+      registry.register('@cognipipe/node-timed-a', TimedNodeA);
+      registry.register('@cognipipe/node-timed-b', TimedNodeB);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        { name: 'a', uses: '@cognipipe/node-timed-a', config: {} },
+        { name: 'b', uses: '@cognipipe/node-timed-b', config: {}, dependsOn: ['a'] },
+      ]);
+
+      await executor.run(config);
+
+      expect(timestamps['start-b']).toBeGreaterThanOrEqual(timestamps['end-a']);
+    });
+
+    it('a dependsOn entry may name a step declared LATER in the array', async () => {
+      // "b" is declared FIRST but depends on "a", which is declared SECOND.
+      // Regression test: a naive scheduler that builds its completion map by
+      // walking `config.steps` in order and looking up `completions.get(dep)`
+      // as it goes would find nothing for "a" here and treat "b" as having no
+      // real dependency, letting it run before "a".
+      const registry = new NodeRegistry();
+      const timestamps: Record<string, number> = {};
+
+      class TimedNodeA implements IBaseNode {
+        async execute(): Promise<NodeOutput> {
+          timestamps['start-a'] = Date.now();
+          await new Promise(resolve => setTimeout(resolve, 50));
+          timestamps['end-a'] = Date.now();
+          return { ok: true };
+        }
+      }
+
+      class TimedNodeB implements IBaseNode {
+        async execute(): Promise<NodeOutput> {
+          timestamps['start-b'] = Date.now();
+          return { ok: true };
+        }
+      }
+
+      registry.register('@cognipipe/node-timed-a', TimedNodeA);
+      registry.register('@cognipipe/node-timed-b', TimedNodeB);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        { name: 'b', uses: '@cognipipe/node-timed-b', config: {}, dependsOn: ['a'] },
+        { name: 'a', uses: '@cognipipe/node-timed-a', config: {} },
+      ]);
+
+      await executor.run(config);
+
+      expect(timestamps['start-b']).toBeGreaterThanOrEqual(timestamps['end-a']);
+    });
+
+    it('diamond dependency (a → b, a → c, b and c → d): d does not start until BOTH b and c complete', async () => {
+      const registry = new NodeRegistry();
+      const timestamps: Record<string, number> = {};
+
+      class TimedNode implements IBaseNode {
+        constructor(
+          private readonly key: string,
+          private readonly delayMs: number,
+        ) {}
+        async execute(): Promise<NodeOutput> {
+          timestamps[`start-${this.key}`] = Date.now();
+          await new Promise(resolve => setTimeout(resolve, this.delayMs));
+          timestamps[`end-${this.key}`] = Date.now();
+          return { ok: true };
+        }
+      }
+
+      class NodeAFactory implements IBaseNode {
+        #inner = new TimedNode('a', 10);
+        execute(_config: NodeConfig, _ctx: IExecutionContext): Promise<NodeOutput> {
+          return this.#inner.execute();
+        }
+      }
+      class NodeBFactory implements IBaseNode {
+        #inner = new TimedNode('b', 50);
+        execute(_config: NodeConfig, _ctx: IExecutionContext): Promise<NodeOutput> {
+          return this.#inner.execute();
+        }
+      }
+      class NodeCFactory implements IBaseNode {
+        #inner = new TimedNode('c', 20);
+        execute(_config: NodeConfig, _ctx: IExecutionContext): Promise<NodeOutput> {
+          return this.#inner.execute();
+        }
+      }
+      class NodeDFactory implements IBaseNode {
+        #inner = new TimedNode('d', 10);
+        execute(_config: NodeConfig, _ctx: IExecutionContext): Promise<NodeOutput> {
+          return this.#inner.execute();
+        }
+      }
+
+      registry.register('@cognipipe/node-a', NodeAFactory);
+      registry.register('@cognipipe/node-b', NodeBFactory);
+      registry.register('@cognipipe/node-c', NodeCFactory);
+      registry.register('@cognipipe/node-d', NodeDFactory);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        { name: 'a', uses: '@cognipipe/node-a', config: {} },
+        { name: 'b', uses: '@cognipipe/node-b', config: {}, dependsOn: ['a'] },
+        { name: 'c', uses: '@cognipipe/node-c', config: {}, dependsOn: ['a'] },
+        { name: 'd', uses: '@cognipipe/node-d', config: {}, dependsOn: ['b', 'c'] },
+      ]);
+
+      await executor.run(config);
+
+      expect(timestamps['start-d']).toBeGreaterThanOrEqual(timestamps['end-b']);
+      expect(timestamps['start-d']).toBeGreaterThanOrEqual(timestamps['end-c']);
+    });
+
+    it('the final ExecutionContext contains results from ALL steps regardless of completion order', async () => {
+      const registry = new NodeRegistry();
+
+      class DelayedNode implements IBaseNode {
+        constructor(
+          private readonly value: string,
+          private readonly delayMs: number,
+        ) {}
+        async execute(): Promise<NodeOutput> {
+          await new Promise(resolve => setTimeout(resolve, this.delayMs));
+          return { value: this.value };
+        }
+      }
+
+      class SlowFactory implements IBaseNode {
+        #inner = new DelayedNode('slow', 50);
+        execute() {
+          return this.#inner.execute();
+        }
+      }
+      class FastFactory implements IBaseNode {
+        #inner = new DelayedNode('fast', 5);
+        execute() {
+          return this.#inner.execute();
+        }
+      }
+
+      registry.register('@cognipipe/node-slow', SlowFactory);
+      registry.register('@cognipipe/node-fast', FastFactory);
+      const executor = new WorkflowExecutor(registry);
+
+      // "slow" is declared FIRST but finishes LAST.
+      const config = buildWorkflow([
+        { name: 'slow', uses: '@cognipipe/node-slow', config: {} },
+        { name: 'fast', uses: '@cognipipe/node-fast', config: {} },
+      ]);
+
+      const result = await executor.run(config);
+      const steps = result.context.get('steps') as Record<string, { output: { value: string } }>;
+
+      expect(steps['fast'].output.value).toBe('fast');
+      expect(steps['slow'].output.value).toBe('slow');
+    });
+
+    it('retry still works correctly on a step running in the concurrent scheduler', async () => {
+      const registry = new NodeRegistry();
+      let calls = 0;
+
+      class FlakyConcurrentNode implements IBaseNode {
+        async execute(): Promise<NodeOutput> {
+          calls++;
+          if (calls < 3) {
+            throw new Error('flaky');
+          }
+          return { ok: true };
+        }
+      }
+
+      registry.register('@cognipipe/node-flaky-concurrent', FlakyConcurrentNode);
+      registry.register('@cognipipe/node-echo', EchoNode);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        {
+          name: 'independent',
+          uses: '@cognipipe/node-flaky-concurrent',
+          config: {},
+          retry: { attempts: 3, delayMs: 0 },
+        },
+        { name: 'echo', uses: '@cognipipe/node-echo', config: { v: 1 } },
+      ]);
+
+      const result = await executor.run(config);
+
+      expect(calls).toBe(3);
+      const steps = result.context.get('steps') as Record<string, { retryCount: number }>;
+      expect(steps['independent'].retryCount).toBe(2);
+    });
+
+    it('continueOnError: true on a failing step does not block an unrelated independent step, and lets a dependent proceed to (and itself fail) an interpolation error', async () => {
+      const registry = new NodeRegistry();
+      registry.register('@cognipipe/node-fail', FailNode);
+      registry.register('@cognipipe/node-echo', EchoNode);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        { name: 'fail-step', uses: '@cognipipe/node-fail', config: {}, continueOnError: true },
+        { name: 'independent', uses: '@cognipipe/node-echo', config: { v: 1 } },
+        {
+          name: 'dependent',
+          uses: '@cognipipe/node-echo',
+          config: { val: '{{ steps.fail-step.output.x }}' },
+          dependsOn: ['fail-step'],
+          continueOnError: true,
+        },
+      ]);
+
+      const result = await executor.run(config);
+
+      expect(result.stepErrors).toHaveLength(2);
+      expect(result.stepErrors.map(e => e.stepName)).toEqual(['fail-step', 'dependent']);
+
+      const steps = result.context.get('steps') as Record<
+        string,
+        { output: { echoed: { v: number } } }
+      >;
+      expect(steps['independent'].output.echoed.v).toBe(1);
+    });
+
+    it('a step that fails WITHOUT continueOnError still rejects run(), even though unrelated independent steps ran concurrently', async () => {
+      const registry = new NodeRegistry();
+      registry.register('@cognipipe/node-fail', FailNode);
+      registry.register('@cognipipe/node-echo', EchoNode);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        { name: 'fail-step', uses: '@cognipipe/node-fail', config: {} },
+        { name: 'independent', uses: '@cognipipe/node-echo', config: { v: 1 } },
+      ]);
+
+      let thrown: unknown;
+      try {
+        await executor.run(config);
+      } catch (err) {
+        thrown = err;
+      }
+
+      expect(isCogniPipeError(thrown)).toBe(true);
+      expect((thrown as { code: string }).code).toBe(COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED);
+    });
+
+    it('a fatal failure in a dependency prevents its dependent from starting and rejects run()', async () => {
+      const registry = new NodeRegistry();
+      registry.register('@cognipipe/node-fail', FailNode);
+      const executor = new WorkflowExecutor(registry);
+
+      let dependentStarted = false;
+
+      class DependentNode implements IBaseNode {
+        async execute(): Promise<NodeOutput> {
+          dependentStarted = true;
+          return { ok: true };
+        }
+      }
+      registry.register('@cognipipe/node-dependent', DependentNode);
+
+      const config = buildWorkflow([
+        { name: 'fail-step', uses: '@cognipipe/node-fail', config: {} },
+        {
+          name: 'dependent',
+          uses: '@cognipipe/node-dependent',
+          config: {},
+          dependsOn: ['fail-step'],
+        },
+      ]);
+
+      let thrown: unknown;
+      try {
+        await executor.run(config);
+      } catch (err) {
+        thrown = err;
+      }
+
+      expect(isCogniPipeError(thrown)).toBe(true);
+      expect((thrown as { code: string }).code).toBe(COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED);
+      expect(dependentStarted).toBe(false);
+    });
+
+    it('treats a dependsOn entry naming a non-existent step as already-satisfied (dangling reference)', async () => {
+      const registry = new NodeRegistry();
+      registry.register('@cognipipe/node-echo', EchoNode);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        {
+          name: 'orphan',
+          uses: '@cognipipe/node-echo',
+          config: { value: 1 },
+          dependsOn: ['does-not-exist'],
+        },
+      ]);
+
+      const result = await executor.run(config);
+      const steps = result.context.get('steps') as Record<string, { output: unknown }>;
+      expect(steps['orphan'].output).toEqual({ echoed: { value: 1 } });
+    });
+
+    it('overwrites an array seed value for the reserved "steps" namespace with the step results object', async () => {
+      const registry = new NodeRegistry();
+      registry.register('@cognipipe/node-echo', EchoNode);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        { name: 'step-a', uses: '@cognipipe/node-echo', config: { value: 1 } },
+      ]);
+
+      // Seed 'steps' as an array to exercise the !Array.isArray() false branch in scheduleContextWrite
+      const result = await executor.run(config, { steps: ['malformed-seed'] });
+
+      const steps = result.context.get('steps') as Record<string, { output: unknown }>;
+      expect(steps['step-a'].output).toEqual({ echoed: { value: 1 } });
+    });
+
+    it('a fatal failure in multiple independent branches captures the first fatal error and rejects run()', async () => {
+      const registry = new NodeRegistry();
+      registry.register('@cognipipe/node-fail', FailNode);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        { name: 'fail-1', uses: '@cognipipe/node-fail', config: {} },
+        { name: 'fail-2', uses: '@cognipipe/node-fail', config: {} },
+      ]);
+
+      let thrown: unknown;
+      try {
+        await executor.run(config);
+      } catch (err) {
+        thrown = err;
+      }
+
+      expect(isCogniPipeError(thrown)).toBe(true);
+    });
+
+    it('a step waiting on a slow dependency never starts once an unrelated branch has already failed fatally', async () => {
+      const registry = new NodeRegistry();
+      registry.register('@cognipipe/node-fail', FailNode);
+
+      let lateStarted = false;
+      class SlowNode implements IBaseNode {
+        async execute(): Promise<NodeOutput> {
+          await new Promise(resolve => setTimeout(resolve, 50));
+          return { ok: true };
+        }
+      }
+      class LateNode implements IBaseNode {
+        async execute(): Promise<NodeOutput> {
+          lateStarted = true;
+          return { ok: true };
+        }
+      }
+      registry.register('@cognipipe/node-slow', SlowNode);
+      registry.register('@cognipipe/node-late', LateNode);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        { name: 'fail-step', uses: '@cognipipe/node-fail', config: {} },
+        { name: 'slow', uses: '@cognipipe/node-slow', config: {} },
+        { name: 'late', uses: '@cognipipe/node-late', config: {}, dependsOn: ['slow'] },
+      ]);
+
+      let thrown: unknown;
+      try {
+        await executor.run(config);
+      } catch (err) {
+        thrown = err;
+      }
+
+      expect(isCogniPipeError(thrown)).toBe(true);
+      expect(lateStarted).toBe(false);
+    });
+
+    it('stress test: 10 independent steps with randomized delays all complete and are present in the final context', async () => {
+      const registry = new NodeRegistry();
+
+      class RandomDelayNode implements IBaseNode {
+        constructor(private readonly id: number) {}
+        async execute(): Promise<NodeOutput> {
+          await new Promise(resolve => setTimeout(resolve, Math.random() * 30));
+          return { id: this.id };
+        }
+      }
+
+      for (let i = 0; i < 10; i++) {
+        const id = i;
+        class Factory implements IBaseNode {
+          #inner = new RandomDelayNode(id);
+          execute(): Promise<NodeOutput> {
+            return this.#inner.execute();
+          }
+        }
+        registry.register(`@cognipipe/node-rand-${i}`, Factory);
+      }
+
+      const executor = new WorkflowExecutor(registry);
+      const steps = Array.from({ length: 10 }, (_, i) => ({
+        name: `step-${i}`,
+        uses: `@cognipipe/node-rand-${i}`,
+        config: {},
+      }));
+
+      const config = buildWorkflow(steps);
+      const result = await executor.run(config);
+      const contextSteps = result.context.get('steps') as Record<
+        string,
+        { output: { id: number } }
+      >;
+
+      for (let i = 0; i < 10; i++) {
+        expect(contextSteps[`step-${i}`].output.id).toBe(i);
+      }
     });
   });
 });
