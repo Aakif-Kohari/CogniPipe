@@ -16,13 +16,13 @@ function mockFetchOnce(body: unknown, init: { ok?: boolean; status?: number } = 
 }
 
 const baseConfig = {
-  model: 'claude-3-5-sonnet-20241022',
+  model: 'claude-sonnet-5',
   prompt: 'Summarize this text',
 } as NodeConfig;
 
 const anthropicSuccessBody = {
   content: [{ type: 'text', text: 'Hello from Anthropic' }],
-  model: 'claude-3-5-sonnet-20241022',
+  model: 'claude-sonnet-5',
   usage: { input_tokens: 10, output_tokens: 5 },
 };
 
@@ -49,7 +49,7 @@ describe('ClaudeNode', () => {
       inputTokens: 10,
       outputTokens: 5,
       totalTokens: 15,
-      modelUsed: 'claude-3-5-sonnet-20241022',
+      modelUsed: 'claude-sonnet-5',
       providerUrlUsed: 'https://api.anthropic.com/v1',
       retryCount: 0,
       fallbackUsed: false,

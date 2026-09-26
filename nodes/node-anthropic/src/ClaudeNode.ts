@@ -31,7 +31,7 @@ import { z } from 'zod';
 const ClaudeConfigSchema = z.object({
   provider: z.string().default('anthropic'),
   apiKeyEnv: z.string().min(1).default('ANTHROPIC_API_KEY'),
-  model: z.enum(['claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307']),
+  model: z.enum(['claude-sonnet-5', 'claude-haiku-4-5-20251001']),
   baseUrl: z.string().url().optional(),
   streaming: z.boolean().default(false),
   // Anthropic REQUIRES max_tokens on every request — the API 400s without
@@ -73,7 +73,7 @@ interface AnthropicMessageResponse {
 
 /**
  * Anthropic Messages API node.
- * Supports claude-3-5-sonnet-20241022 and claude-3-haiku-20240307. Reads the
+ * Supports claude-sonnet-5 and claude-haiku-4-5-20251001. Reads the
  * API key from process.env[config.apiKeyEnv] — never accepts the key
  * directly in config.
  *
@@ -83,7 +83,7 @@ interface AnthropicMessageResponse {
  *   - name: summarize
  *     uses: '@cognipipe/node-anthropic'
  *     config:
- *       model: claude-3-5-sonnet-20241022
+ *       model: claude-sonnet-5
  *       prompt: 'Summarize: {{ steps.fetch-data.output.body }}'
  *       apiKeyEnv: ANTHROPIC_API_KEY
  * ```
