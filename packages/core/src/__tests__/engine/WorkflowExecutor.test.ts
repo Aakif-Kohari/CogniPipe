@@ -1418,6 +1418,44 @@ describe('WorkflowExecutor', () => {
       expect(isCogniPipeError(thrown)).toBe(true);
     });
 
+    it('a step waiting on a slow dependency never starts once an unrelated branch has already failed fatally', async () => {
+      const registry = new NodeRegistry();
+      registry.register('@cognipipe/node-fail', FailNode);
+
+      let lateStarted = false;
+      class SlowNode implements IBaseNode {
+        async execute(): Promise<NodeOutput> {
+          await new Promise(resolve => setTimeout(resolve, 50));
+          return { ok: true };
+        }
+      }
+      class LateNode implements IBaseNode {
+        async execute(): Promise<NodeOutput> {
+          lateStarted = true;
+          return { ok: true };
+        }
+      }
+      registry.register('@cognipipe/node-slow', SlowNode);
+      registry.register('@cognipipe/node-late', LateNode);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        { name: 'fail-step', uses: '@cognipipe/node-fail', config: {} },
+        { name: 'slow', uses: '@cognipipe/node-slow', config: {} },
+        { name: 'late', uses: '@cognipipe/node-late', config: {}, dependsOn: ['slow'] },
+      ]);
+
+      let thrown: unknown;
+      try {
+        await executor.run(config);
+      } catch (err) {
+        thrown = err;
+      }
+
+      expect(isCogniPipeError(thrown)).toBe(true);
+      expect(lateStarted).toBe(false);
+    });
+
     it('stress test: 10 independent steps with randomized delays all complete and are present in the final context', async () => {
       const registry = new NodeRegistry();
 

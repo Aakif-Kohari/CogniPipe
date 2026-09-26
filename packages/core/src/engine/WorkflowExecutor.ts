@@ -303,6 +303,13 @@ export class WorkflowExecutor {
           // Guaranteed to exist: every step's completion signal was created
           // in the loop above, over this same `config.steps` array.
           const completion = completions.get(step.name)!;
+          if (fatalError !== undefined) {
+            // A fatal failure elsewhere already occurred; do not start new work.
+            // This ensures steps waiting on slow dependencies never start their
+            // side effects (e.g. HTTP calls) once the workflow is already doomed.
+            completion.reject(fatalError);
+            throw fatalError;
+          }
           try {
             const stepError = await this.#runStep(step, ctx, scheduleContextWrite);
             if (stepError !== undefined) {
