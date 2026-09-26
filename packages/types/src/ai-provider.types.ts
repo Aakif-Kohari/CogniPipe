@@ -108,7 +108,7 @@ export interface AiProviderConfig {
    * Model identifier passed verbatim to the provider API.
    * Refer to your provider's model list for valid values.
    *
-   * @example 'gpt-4o', 'claude-3-5-sonnet-20241022', 'meta-llama/llama-3-8b-instruct'
+   * @example 'gpt-4o', 'claude-sonnet-5', 'meta-llama/llama-3-8b-instruct'
    */
   model: string;
 
