@@ -1,5 +1,11 @@
 # @cognipipe/sdk
 
+## 0.2.0
+
+### Minor Changes
+
+- dbfe97a: Add `RetryManager` and `parseRetryAfter` for AiRateLimitPolicy-driven HTTP 429 exponential backoff, with RFC 9110 Retry-After header support.
+
 ## 0.1.4
 
 ### Patch Changes
