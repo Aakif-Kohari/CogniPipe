@@ -1,5 +1,12 @@
 # @cognipipe/node-http
 
+## 0.1.7
+
+### Patch Changes
+
+- Updated dependencies [dbfe97a]
+  - @cognipipe/sdk@0.2.0
+
 ## 0.1.6
 
 ### Patch Changes
