@@ -14,17 +14,23 @@ describe('MockContext', () => {
   });
 
   it('sets and gets a value', () => {
-    const ctx = new MockContext();
-    ctx.set('k', 'v');
+    const ctx = new MockContext().set('k', 'v');
 
     expect(ctx.get('k')).toBe('v');
   });
 
-  it('chains set() calls and mutates in place', () => {
+  it('returns a new instance from set() without mutating the original', () => {
     const ctx = new MockContext();
-    const returned = ctx.set('a', 1).set('b', 2);
+    const next = ctx.set('a', 1);
 
-    expect(returned).toBe(ctx);
+    expect(next).not.toBe(ctx);
+    expect(ctx.has('a')).toBe(false);
+    expect(next.get('a')).toBe(1);
+  });
+
+  it('supports chained set() calls, each returning a new instance with accumulated data', () => {
+    const ctx = new MockContext().set('a', 1).set('b', 2);
+
     expect(ctx.toJSON()).toEqual({ a: 1, b: 2 });
   });
 
@@ -32,8 +38,8 @@ describe('MockContext', () => {
     const ctx = new MockContext();
 
     expect(ctx.has('k')).toBe(false);
-    ctx.set('k', 'v');
-    expect(ctx.has('k')).toBe(true);
+    const next = ctx.set('k', 'v');
+    expect(next.has('k')).toBe(true);
   });
 
   it('resolves a nested seeded path via interpolate()', () => {
@@ -75,9 +81,31 @@ describe('MockContext', () => {
     expect(() => ctx.interpolate('{{ missing }}')).toThrow('missing');
   });
 
+  it('throws when a key exists but its stored value is undefined', () => {
+    const ctx = new MockContext({ a: undefined });
+
+    expect(() => ctx.interpolate('{{ a }}')).toThrow('no value found for this path');
+  });
+
   it('throws when a null value sits on the interpolation path', () => {
     const ctx = new MockContext({ a: null });
 
     expect(() => ctx.interpolate('{{ a.b }}')).toThrow('a.b');
+  });
+
+  it('throws when a path segment resolves only to an inherited prototype property', () => {
+    const ctx = new MockContext();
+
+    expect(() => ctx.interpolate('{{ toString }}')).toThrow();
+  });
+
+  it('resolves instantly on an unterminated malicious token, without hanging (ReDoS guard)', () => {
+    const ctx = new MockContext();
+    const malicious = '{{' + ' '.repeat(50_000);
+    const start = Date.now();
+    const result = ctx.interpolate(malicious);
+
+    expect(result).toBe(malicious);
+    expect(Date.now() - start).toBeLessThan(200);
   });
 });

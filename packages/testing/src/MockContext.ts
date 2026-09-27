@@ -10,9 +10,9 @@ import type { IExecutionContext } from '@cognipipe/types';
 
 /**
  * Pre-built IExecutionContext for node authors' test suites.
- * Backed by a mutable in-memory Map — simpler than production ExecutionContext
- * since tests do not need the immutability guarantee (each test constructs
- * its own instance and discards it).
+ * Backed by an in-memory Map, matching production ExecutionContext's
+ * immutable get/set contract — code typed against IExecutionContext
+ * behaves identically whether given a MockContext or the real thing.
  *
  * @example
  * ```typescript
@@ -32,16 +32,14 @@ export class MockContext implements IExecutionContext {
   }
 
   /**
-   * NOTE: unlike production ExecutionContext, MockContext.set() mutates
-   * in place and returns `this` for convenience in test setup chains
-   * (`new MockContext().set('a', 1).set('b', 2)`). This is a deliberate,
-   * documented deviation from the immutable contract described on
-   * IExecutionContext — acceptable because MockContext instances are
-   * always test-scoped and never shared across assertions.
+   * Returns a NEW MockContext with the given key set — matches the
+   * immutable contract IExecutionContext.set() documents, same as
+   * production ExecutionContext. The original instance is untouched.
+   * `new MockContext().set('a', 1).set('b', 2)` still chains naturally,
+   * since each call in the chain works off the instance just returned.
    */
   set(key: string, value: unknown): MockContext {
-    this.#store.set(key, value);
-    return this;
+    return new MockContext({ ...this.toJSON(), [key]: value });
   }
 
   has(key: string): boolean {
@@ -50,14 +48,16 @@ export class MockContext implements IExecutionContext {
 
   /**
    * Supports `{{ key.path.to.value }}` dot-notation resolution only.
-   * Does NOT support array bracket notation (`[0]`) or the ReDoS-hardened
-   * regex used by production `interpolation.ts` — test fixtures are
-   * developer-controlled, not attacker-controlled, so that hardening
-   * doesn't apply here.
+   * Does NOT support array bracket notation (`[0]`) — production
+   * ExecutionContext does; MockContext intentionally covers the common
+   * case only.
    *
    * Walks a plain-object snapshot of the store (via {@link toJSON}) rather
    * than special-casing the first path segment against the Map — this keeps
-   * root-level and nested lookups on one code path instead of two.
+   * root-level and nested lookups on one code path instead of two. Only
+   * resolves a segment when it is an own property of the current value, so
+   * inherited `Object.prototype` members (`toString`, `constructor`, etc.)
+   * never resolve.
    *
    * @throws {Error} Plain `Error` (never `CogniPipeError`) when a token
    *   can't be resolved — MockContext has no dependency on
@@ -66,12 +66,13 @@ export class MockContext implements IExecutionContext {
   interpolate(template: string): string {
     const data = this.toJSON();
 
-    return template.replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (_match, expression: string) => {
+    return template.replace(/\{\{([^{}]+)\}\}/g, (_match, rawExpression: string) => {
+      const expression = rawExpression.trim();
       const segments = expression.split('.');
 
       let current: unknown = data;
       for (const segment of segments) {
-        if (current === null || typeof current !== 'object') {
+        if (current === null || typeof current !== 'object' || !Object.hasOwn(current, segment)) {
           throw new Error(
             `Cannot interpolate "{{ ${expression} }}": no value found at "${segment}".`,
           );
