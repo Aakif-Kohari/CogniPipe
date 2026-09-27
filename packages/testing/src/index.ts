@@ -5,4 +5,5 @@
  * Starts with MockContext — a pre-built IExecutionContext implementation
  * for use in node test suites without hand-rolling inline mocks.
  */
-// Exports added as utilities are implemented — this file must remain a barrel.
+
+export { MockContext } from './MockContext.js';
