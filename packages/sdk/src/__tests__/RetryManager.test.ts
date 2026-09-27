@@ -224,6 +224,26 @@ describe('RetryManager', () => {
       });
       expect(fn).toHaveBeenCalledTimes(1);
     });
+
+    it("chunks delays beyond setTimeout's 32-bit signed-int ceiling", async () => {
+      const MAX_TIMER_DELAY_MS = 2_147_483_647;
+      const overCeilingDelay = MAX_TIMER_DELAY_MS + 500;
+
+      const fn = jest.fn().mockRejectedValueOnce(make429Error()).mockResolvedValue('success');
+      const policy: AiRateLimitPolicy = { maxRetries: 1, initialDelayMs: overCeilingDelay };
+
+      const promise = RetryManager.execute(fn, policy);
+
+      // First chunk fires at exactly the 32-bit ceiling — the retry must NOT
+      // have happened yet, since 500ms of the requested delay still remains.
+      await jest.advanceTimersByTimeAsync(MAX_TIMER_DELAY_MS);
+      expect(fn).toHaveBeenCalledTimes(1);
+
+      // The leftover chunk completes the full delay.
+      await jest.advanceTimersByTimeAsync(500);
+      await expect(promise).resolves.toBe('success');
+      expect(fn).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('parseRetryAfter()', () => {
@@ -257,6 +277,10 @@ describe('RetryManager', () => {
       // but "Zzz" isn't a real month, so `new Date()` itself returns Invalid Date —
       // this is the case the inner Number.isNaN(date.getTime()) check guards against.
       expect(parseRetryAfter('Mon, 01 Zzz 2026 00:00:00 GMT')).toBeNull();
+    });
+
+    it('returns null for a calendar-impossible date that Date normalizes silently (e.g. Feb 30)', () => {
+      expect(parseRetryAfter('Mon, 30 Feb 2026 00:00:00 GMT')).toBeNull();
     });
   });
 });

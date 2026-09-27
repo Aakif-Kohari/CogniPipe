@@ -52,7 +52,10 @@ export function parseRetryAfter(headerValue: string): number | null {
 
   if (IMF_FIXDATE_PATTERN.test(headerValue)) {
     const date = new Date(headerValue);
-    if (!Number.isNaN(date.getTime())) {
+    // Reject dates that don't round-trip: new Date() silently normalizes
+    // out-of-range components (e.g. "30 Feb" -> "2 Mar"), which would
+    // otherwise turn a malformed header into a spurious valid delay.
+    if (!Number.isNaN(date.getTime()) && date.toUTCString() === headerValue) {
       const delayMs = date.getTime() - Date.now();
       return delayMs > 0 ? delayMs : 0;
     }
@@ -61,8 +64,23 @@ export function parseRetryAfter(headerValue: string): number | null {
   return null;
 }
 
-const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
+// setTimeout's 32-bit signed-int ceiling — delays beyond this fire immediately
+// instead of after the requested duration, which would silently violate this
+// module's contract to honor the provider's exact Retry-After duration.
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
+const sleep = async (ms: number): Promise<void> => {
+  let remaining = ms;
+  while (remaining > MAX_TIMER_DELAY_MS) {
+    await new Promise<void>(resolve => setTimeout(resolve, MAX_TIMER_DELAY_MS));
+    remaining -= MAX_TIMER_DELAY_MS;
+  }
+  await new Promise<void>(resolve => setTimeout(resolve, remaining));
+};
 
+/**
+ * Namespace object exposing {@link RetryManager.execute} — the sole entry
+ * point for AiRateLimitPolicy-driven HTTP 429 retry handling.
+ */
 export const RetryManager = {
   /**
    * Executes `fn`, retrying on HTTP 429 per `policy`.
@@ -102,7 +120,7 @@ export const RetryManager = {
 
         if (attemptIndex >= policy.maxRetries) {
           throw new CogniPipeError(
-            `RetryManager: rate limit retries exhausted after ${policy.maxRetries} attempts. ` +
+            `RetryManager: rate limit retries exhausted after ${policy.maxRetries} retries (${attemptIndex + 1} attempts made). ` +
               `The provider kept returning HTTP 429 — consider raising maxRetries or checking the API quota.`,
             {
               code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
