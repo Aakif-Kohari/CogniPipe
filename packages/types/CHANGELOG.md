@@ -1,5 +1,11 @@
 # @cognipipe/types
 
+## 0.1.1
+
+### Patch Changes
+
+- fe249df: Bump minimum `pnpm` engine requirement to >=11.10.0.
+
 ## 0.1.0
 
 ### Minor Changes
