@@ -252,6 +252,13 @@ All skill levels are welcome. The most common contribution is a **new node packa
                 </a>
             </td>
             <td align="center">
+                <a href="https://github.com/erSpell">
+                    <img src="https://avatars.githubusercontent.com/u/114104796?v=4" width="80;" alt="erSpell"/>
+                    <br />
+                    <sub><b>e_r_spell</b></sub>
+                </a>
+            </td>
+            <td align="center">
                 <a href="https://github.com/mikemikimike">
                     <img src="https://avatars.githubusercontent.com/u/186855910?v=4" width="80;" alt="mikemikimike"/>
                     <br />
