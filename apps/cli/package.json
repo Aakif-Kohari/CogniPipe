@@ -5,7 +5,7 @@
   "description": "Code-first workflow automation engine",
   "engines": {
     "node": ">=22.14.0",
-    "pnpm": ">=10.0.0"
+    "pnpm": ">=11.10.0"
   },
   "bin": {
     "cognipipe": "./dist/index.js"

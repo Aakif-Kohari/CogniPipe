@@ -4,7 +4,7 @@
   "type": "module",
   "engines": {
     "node": ">=22.14.0",
-    "pnpm": ">=10.0.0"
+    "pnpm": ">=11.10.0"
   },
   "description": "GitHub integration node for CogniPipe",
   "license": "MIT",
