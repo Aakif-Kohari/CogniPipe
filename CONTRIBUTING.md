@@ -50,6 +50,10 @@ cd cognipipe
 # 3. Enable Corepack (downloads and uses the exact pinned pnpm version)
 corepack enable
 
+# OR Install pnpm directly via npm
+# (The --allow-scripts flag ensures pnpm's install scripts aren't blocked by strict npm configs)
+npm install --global pnpm --allow-scripts=pnpm
+
 # 4. Install all dependencies
 pnpm install
 
