@@ -7,7 +7,7 @@
   "description": "Code-first workflow automation engine for developers",
   "engines": {
     "node": ">=22.14.0",
-    "pnpm": ">=10.0.0"
+    "pnpm": ">=11.10.0"
   },
   "scripts": {
     "build": "turbo run build",

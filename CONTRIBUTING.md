@@ -29,7 +29,7 @@ Thank you for investing your time! All contributions are valued.
 
 ## Setting Up the Repo
 
-**Prerequisites:** Node.js >= 22, pnpm >= 9, git
+**Prerequisites:** Node.js >= 22, pnpm >= 11.10.0, git
 
 > Tip: `corepack enable` (bundled with Node.js) will automatically use the exact
 > pnpm version this project expects. Installing pnpm via `npm install -g pnpm`
@@ -47,13 +47,16 @@ Thank you for investing your time! All contributions are valued.
 git clone https://github.com/YOUR_USERNAME/CogniPipe.git
 cd cognipipe
 
-# 3. Install all dependencies
+# 3. Enable Corepack (downloads and uses the exact pinned pnpm version)
+corepack enable
+
+# 4. Install all dependencies
 pnpm install
 
-# 4. Build dependency packages
+# 5. Build dependency packages
 pnpm turbo build --filter=@cognipipe/types --filter=@cognipipe/sdk
 
-# 5. Verify everything works
+# 6. Verify everything works
 pnpm test
 pnpm lint
 pnpm type-check
