@@ -1,5 +1,15 @@
 # @cognipipe/node-http
 
+## 0.1.8
+
+### Patch Changes
+
+- fe249df: Bump minimum `pnpm` engine requirement to >=11.10.0.
+- Updated dependencies [fe249df]
+  - @cognipipe/core@0.3.1
+  - @cognipipe/sdk@0.2.1
+  - @cognipipe/types@0.1.1
+
 ## 0.1.7
 
 ### Patch Changes
