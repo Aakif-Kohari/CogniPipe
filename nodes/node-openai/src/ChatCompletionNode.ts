@@ -1,4 +1,4 @@
-import { BaseNode, CogniNode } from '@cognipipe/sdk';
+import { BaseNode, CogniNode, defineConfig } from '@cognipipe/sdk';
 import type { IExecutionContext, NodeConfig } from '@cognipipe/types';
 import type { AiProviderConfig, AiNodeOutput } from '@cognipipe/types';
 import { CogniPipeError, COGNIPIPE_ERROR_CODES } from '@cognipipe/core';
@@ -26,6 +26,9 @@ const ChatCompletionConfigSchema = z.object({
   prompt: z.string().min(1, 'prompt must be a non-empty string'),
 });
 
+/** Runtime-validated config parser. */
+const ChatCompletionConfigParser = defineConfig(ChatCompletionConfigSchema);
+
 /** Runtime-validated config, inferred from the Zod schema above. */
 export type ChatCompletionConfig = z.input<typeof ChatCompletionConfigSchema>;
 
@@ -41,6 +44,27 @@ export interface ChatCompletionNodeConfig extends AiProviderConfig {
 
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 const DEFAULT_TIMEOUT_MS = 30_000;
+
+/** Maximum characters of a provider error body echoed into an error message. */
+const MAX_ERROR_BODY_CHARS = 500;
+
+/** Keeps provider error bodies from flooding logs; bounds message size only. */
+function truncateErrorBody(body: string): string {
+  return body.length > MAX_ERROR_BODY_CHARS
+    ? `${body.slice(0, MAX_ERROR_BODY_CHARS)}… [truncated, ${body.length - MAX_ERROR_BODY_CHARS} more characters]`
+    : body;
+}
+
+/** Joins baseUrl + endpoint without double slashes and without mangling query strings. */
+function buildEndpointUrl(baseUrl: string, endpoint: string): string {
+  const url = new URL(baseUrl);
+  let pathname = url.pathname;
+  while (pathname.endsWith('/')) {
+    pathname = pathname.slice(0, -1);
+  }
+  url.pathname = `${pathname}/${endpoint}`;
+  return url.toString();
+}
 
 /** Shape of a successful OpenAI Chat Completions API response. */
 interface OpenAiChatCompletionResponse {
@@ -61,8 +85,13 @@ interface OpenAiChatCompletionResponse {
  * @example
  * ```yaml
  * steps:
+ *   - name: fetch-data
+ *     uses: '@cognipipe/node-http'
+ *     config:
+ *       url: 'https://example.com/data'
  *   - name: summarize
  *     uses: '@cognipipe/node-openai'
+ *     dependsOn: ['fetch-data']
  *     config:
  *       model: gpt-4o
  *       prompt: 'Summarize: {{ steps.fetch-data.output.body }}'
@@ -72,7 +101,7 @@ interface OpenAiChatCompletionResponse {
 @CogniNode({ type: '@cognipipe/node-openai', version: '1.0.0' })
 export class ChatCompletionNode extends BaseNode {
   async execute(config: NodeConfig, _ctx: IExecutionContext): Promise<AiNodeOutput> {
-    const cfg = this.validateConfig(ChatCompletionConfigSchema, config);
+    const cfg = ChatCompletionConfigParser.parse(config);
 
     const apiKey = process.env[cfg.apiKeyEnv];
     if (!apiKey) {
@@ -107,7 +136,7 @@ export class ChatCompletionNode extends BaseNode {
 
     try {
       try {
-        response = await fetch(`${baseUrl}/chat/completions`, {
+        response = await fetch(buildEndpointUrl(baseUrl, 'chat/completions'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -140,10 +169,13 @@ export class ChatCompletionNode extends BaseNode {
 
       if (!response.ok) {
         const errBody = await response.text();
-        throw new CogniPipeError(`OpenAI API returned ${response.status}: ${errBody}`, {
-          code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
-          context: { status: response.status },
-        });
+        throw new CogniPipeError(
+          `OpenAI API returned ${response.status}: ${truncateErrorBody(errBody)}`,
+          {
+            code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+            context: { status: response.status },
+          },
+        );
       }
 
       try {

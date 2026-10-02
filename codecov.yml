@@ -12,7 +12,7 @@ ignore:
   - 'examples/**'
   - 'node-template/**'
   - '**/__tests__/**'
-  - '**/jest.config.ts'
+  - '**/jest.config.js'
   - 'apps/docs/**'
 
 comment:

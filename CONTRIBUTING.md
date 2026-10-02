@@ -97,7 +97,7 @@ nodes/node-myservice/
 
 - [ ] Extends `BaseNode` from `@cognipipe/sdk`
 - [ ] Uses the `@CogniNode()` decorator with unique `type` string
-- [ ] Config validated with Zod (use `NodeConfig.define()`)
+- [ ] Config validated with Zod via `defineConfig()` from @cognipipe/sdk
 - [ ] Zero real API calls in tests (mock everything)
 - [ ] `README.md` documents every config field
 - [ ] `__tests__/` has ≥ 80% coverage
@@ -196,3 +196,5 @@ cognipipe/
 - **Error messages must be actionable** — `throw new Error('Step "fetch" not found. Did you define it before referencing it in "dependsOn"?')`
 - **Environment variables via config** — never hardcode API keys; always read from `process.env`
 - Run `pnpm format` to auto-fix formatting before committing
+- Every relative import in production source (`packages/*/src`, `nodes/*/src`, `apps/*/src`) needs an explicit .js extension. Test files do not.
+- Use `isCogniPipeError()` in tests, never instanceof.

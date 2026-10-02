@@ -455,6 +455,30 @@ describe('HttpNode', () => {
     });
   });
 
+  describe('protocol enforcement (B5 Fix)', () => {
+    it('rejects ftp:// URLs with NODE_CONFIG_INVALID', async () => {
+      expect.assertions(2);
+      const node = new HttpNode();
+      try {
+        await node.execute({ url: 'ftp://example.com/x' }, mockContext);
+      } catch (err) {
+        expect(err).toBeInstanceOf(CogniPipeError);
+        expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
+      }
+    });
+
+    it('rejects file:// URLs with NODE_CONFIG_INVALID', async () => {
+      expect.assertions(2);
+      const node = new HttpNode();
+      try {
+        await node.execute({ url: 'file:///etc/passwd' }, mockContext);
+      } catch (err) {
+        expect(err).toBeInstanceOf(CogniPipeError);
+        expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
+      }
+    });
+  });
+
   describe('network errors', () => {
     it('should throw STEP_EXECUTION_FAILED on fetch error', async () => {
       expect.assertions(2);

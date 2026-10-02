@@ -85,7 +85,8 @@ export function resolveDotPath(obj: unknown, path: string): unknown {
  * because the executor stores all step results under the `steps` key:
  * `{ steps: { 'fetch-issues': { output: { ... } } } }`.
  *
- * Resolved values are coerced to strings via `String()`.
+ * Resolved values are coerced to strings via `String()`. Objects and arrays
+ * are serialized as JSON strings to prevent `[object Object]` coercion.
  * A string containing no `{{ }}` tokens is returned unchanged.
  *
  * @param template - A string potentially containing `{{ expr }}` tokens.
@@ -142,6 +143,9 @@ export function resolveTemplate(template: string, context: IExecutionContext): s
       );
     }
 
-    return String(resolvedValue);
+    // Objects/arrays would become "[object Object]" / "a,b" via String(); embed them as JSON.
+    return typeof resolvedValue === 'object'
+      ? JSON.stringify(resolvedValue)
+      : String(resolvedValue);
   });
 }

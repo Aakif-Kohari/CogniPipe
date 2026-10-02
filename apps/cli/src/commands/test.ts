@@ -81,6 +81,8 @@ async function runTest(workflowFilePath: string): Promise<number> {
 
   // Check 3: dependsOn references.
   const refErrors = validateDependsOnReferences(config.steps);
+
+  /* istanbul ignore else -- core's WorkflowValidator now throws on dangling references before this check runs */
   if (refErrors.length === 0) {
     const refCount = config.steps.reduce((sum, step) => sum + (step.dependsOn?.length ?? 0), 0);
     const message =

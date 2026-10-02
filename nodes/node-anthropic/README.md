@@ -12,8 +12,14 @@ Anthropic Claude integration node for CogniPipe workflows.
 
 ```yaml
 steps:
+  - name: fetch-data
+    uses: '@cognipipe/node-http'
+    config:
+      url: 'https://example.com/data'
+
   - name: summarize
     uses: '@cognipipe/node-anthropic'
+    dependsOn: ['fetch-data']
     config:
       model: claude-sonnet-5
       prompt: 'Summarize: {{ steps.fetch-data.output.body }}'

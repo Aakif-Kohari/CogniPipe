@@ -146,21 +146,21 @@ steps:
     config:
       url: 'https://api.example.com/data'
 
-  - name: log-result
-    uses: '@cognipipe/node-log'
+  - name: report-status
+    uses: '@cognipipe/node-http'
+    dependsOn: ['fetch-data']
     config:
-      message: 'Status: {{ steps.fetch-data.output.status }} — Body: {{ steps.fetch-data.output.body }}'
+      url: 'https://api.example.com/log'
+      method: POST
+      body: '{"status": "{{ steps.fetch-data.output.status }}"}'
 ```
 
 ## Error Handling
 
-The node throws `CogniPipeError` with code `STEP_EXECUTION_FAILED` for:
+- Invalid configuration throws `CogniPipeError` with code `NODE_CONFIG_INVALID`.
+- Network failures, timeouts, and other execution errors throw `CogniPipeError` with code `STEP_EXECUTION_FAILED`.
 
-- Network failures (DNS, connection refused, etc.)
-- Request timeouts
-- Invalid configuration (caught before execution)
-
-All errors include the target URL and method in the error context for debugging.
+All execution errors include the target URL and method in the error context for debugging.
 
 ## Notes
 

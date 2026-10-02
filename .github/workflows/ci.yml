@@ -78,22 +78,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Type check all packages
-        run: |
-          echo "Scanning for packages with tsconfig.json..."
-          FOUND=0
-          for tsconfig in packages/*/tsconfig.json nodes/*/tsconfig.json; do
-            [ -f "$tsconfig" ] || continue
-            dir=$(dirname "$tsconfig")
-            src_files=$(find "$dir/src" -name "*.ts" 2>/dev/null | wc -l)
-            if [ "$src_files" -gt "0" ]; then
-              echo "Checking $dir..."
-              (cd "$dir" && pnpm exec tsc --noEmit) && echo "✅ $dir passed" || echo "❌ $dir failed"
-              FOUND=1
-            fi
-          done
-          if [ "$FOUND" -eq "0" ]; then
-            echo "⏭️  No packages with source files found yet — skipping"
-          fi
+        run: pnpm turbo type-check
 
   # ── Job 3: Tests ───────────────────────────────────────────────────────────
   test:
@@ -124,9 +109,6 @@ jobs:
           else
             echo "⏭️  No test files found yet — skipping"
           fi
-
-      - name: Run tests with coverage
-        run: pnpm turbo test -- --coverage
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1

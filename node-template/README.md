@@ -1,3 +1,7 @@
+Copy to `nodes/node-<service>` and run `pnpm install`.
+
+---
+
 # @cognipipe/node-CHANGEME
 
 <!-- Replace this with a one-line description of what this node does -->
@@ -39,4 +43,4 @@ steps:
 
 ## License
 
-MIT
+MIT © [Aakif Kohari](https://github.com/Aakif-Kohari)

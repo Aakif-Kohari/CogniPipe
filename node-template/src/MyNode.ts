@@ -1,18 +1,17 @@
-// STEP 1: Rename this file and class to match your service
-// STEP 2: Replace 'my-org/my-node' with your actual node type
-// STEP 3: Define your config interface
-// STEP 4: Implement the execute() method
-// STEP 5: Write tests in __tests__/MyNode.test.ts
-
+/**
+ * @module MyNode
+ * Starter node. Rename the class, set the real `type`, and replace the config schema.
+ */
+import { BaseNode, CogniNode, defineConfig } from '@cognipipe/sdk';
 import type { IExecutionContext, NodeConfig, NodeOutput } from '@cognipipe/types';
+import { z } from 'zod';
 
-// TODO: Import BaseNode once @cognipipe/sdk is published
-// import { BaseNode, CogniNode } from '@cognipipe/sdk';
+const MyNodeConfig = defineConfig(z.object({ message: z.string().min(1) }));
 
-// @CogniNode({ type: 'my-org/my-node', version: '1.0.0' })
-export class MyNode /* extends BaseNode */ {
-  async execute(_config: NodeConfig, _ctx: IExecutionContext): Promise<NodeOutput> {
-    // Your implementation here
-    return {};
+@CogniNode({ type: '@cognipipe/node-CHANGEME', version: '1.0.0' })
+export class MyNode extends BaseNode {
+  async execute(config: NodeConfig, _ctx: IExecutionContext): Promise<NodeOutput> {
+    const { message } = MyNodeConfig.parse(config);
+    return { echoed: message };
   }
 }

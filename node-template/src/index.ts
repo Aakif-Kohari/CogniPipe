@@ -1,1 +1,1 @@
-export { MyNode } from './MyNode';
+export { MyNode } from './MyNode.js';

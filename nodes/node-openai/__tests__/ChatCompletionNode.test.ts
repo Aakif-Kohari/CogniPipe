@@ -93,6 +93,30 @@ describe('ChatCompletionNode', () => {
     );
   });
 
+  it('does not double the slash when baseUrl ends with "/"', async () => {
+    mockFetchOnce(openAiSuccessBody);
+    await node.execute(
+      { ...baseConfig, baseUrl: 'https://gateway.example.com/v1/' } as NodeConfig,
+      mockCtx,
+    );
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://gateway.example.com/v1/chat/completions',
+      expect.anything(),
+    );
+  });
+
+  it('preserves a query string on baseUrl', async () => {
+    mockFetchOnce(openAiSuccessBody);
+    await node.execute(
+      { ...baseConfig, baseUrl: 'https://gw.example.com/v1?api-version=2024' } as NodeConfig,
+      mockCtx,
+    );
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://gw.example.com/v1/chat/completions?api-version=2024',
+      expect.anything(),
+    );
+  });
+
   it('throws CogniPipeError(NODE_CONFIG_INVALID) when apiKeyEnv points to an unset variable', async () => {
     delete process.env.OPENAI_API_KEY;
 
@@ -121,6 +145,23 @@ describe('ChatCompletionNode', () => {
       code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
       message: expect.stringContaining('429'),
     });
+  });
+
+  it('truncates an oversized provider error body in the message', async () => {
+    expect.assertions(3);
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+      text: async () => 'x'.repeat(5_000),
+    } as unknown as Response);
+    try {
+      await node.execute(baseConfig, mockCtx);
+    } catch (err) {
+      expect(err).toBeInstanceOf(CogniPipeError);
+      expect((err as CogniPipeError).message).toContain('truncated');
+      expect((err as CogniPipeError).message.length).toBeLessThan(700);
+    }
   });
 
   it('throws CogniPipeError(STEP_EXECUTION_FAILED) on network failure', async () => {

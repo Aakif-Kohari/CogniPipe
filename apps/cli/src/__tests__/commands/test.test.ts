@@ -112,7 +112,7 @@ steps:
     expect(output).toContain('does-not-exist');
   });
 
-  it('exits 1 and uses plural "references" when multiple dependsOn entries are invalid', async () => {
+  it('exits 1 and shows validation error when dependsOn entries are invalid', async () => {
     const file = writeWorkflow(
       'multi-bad-ref.yaml',
       `
@@ -127,7 +127,9 @@ steps:
     );
     const { exitCode, output } = await run(file);
     expect(exitCode).toBe(1);
-    expect(output).toContain('2 invalid references');
+    // Core validator now catches the first dangling reference via superRefine
+    expect(output).toContain('which is not defined in this workflow');
+    expect(output).toContain('missing-1');
   });
 
   it('exits 1 and shows the cycle path when there is a circular dependency', async () => {

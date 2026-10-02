@@ -158,6 +158,20 @@ describe('resolveTemplate', () => {
     expect(thrown instanceof CogniPipeError).toBe(true);
     expect((thrown as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.INTERPOLATION_ERROR);
   });
+
+  it('serializes an object as a JSON string instead of "[object Object]"', () => {
+    const objCtx = new ExecutionContext({
+      data: { payload: { a: 1, b: 'test' } },
+    });
+    expect(resolveTemplate('{{ data.payload }}', objCtx)).toBe('{"a":1,"b":"test"}');
+  });
+
+  it('serializes an array as a JSON string instead of comma-separated values', () => {
+    const arrCtx = new ExecutionContext({
+      data: { items: [1, 2, 3] },
+    });
+    expect(resolveTemplate('{{ data.items }}', arrCtx)).toBe('[1,2,3]');
+  });
 });
 
 describe('resolveTemplate — ReDoS resistance (CodeQL js/polynomial-redos)', () => {

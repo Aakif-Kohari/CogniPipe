@@ -1,38 +1,66 @@
 {
   "name": "@cognipipe/node-CHANGEME",
   "version": "0.0.1",
+  "private": true,
   "type": "module",
+  "description": "CogniPipe node template",
   "engines": {
     "node": ">=22.14.0",
     "pnpm": ">=11.10.0"
   },
-  "description": "CogniPipe node for CHANGEME",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      }
     }
   },
   "scripts": {
-    "build": "tsc",
-    "test": "jest",
-    "lint": "eslint src --ext .ts",
+    "build": "tsc && tsc -p tsconfig.cjs.json && node scripts/postbuild-cjs.js",
+    "test": "jest --coverage",
     "type-check": "tsc --noEmit",
+    "lint": "eslint src/",
     "clean": "rm -rf dist *.tsbuildinfo"
   },
-  "peerDependencies": {
-    "@cognipipe/sdk": ">=0.1.0",
-    "@cognipipe/types": ">=0.1.0"
+  "dependencies": {
+    "@cognipipe/core": "workspace:*",
+    "@cognipipe/sdk": "workspace:*",
+    "@cognipipe/types": "workspace:*",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@cognipipe/types": "workspace:*",
     "@types/jest": "^30.0.0",
-    "jest": "^30.5.1",
-    "ts-jest": "^29.4.12",
+    "@types/node": "^26.6.3",
+    "jest": "^30.5.2",
+    "ts-jest": "^29.4.14",
     "typescript": "^5.9.3"
   },
   "license": "MIT",
-  "private": true
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Aakif-Kohari/CogniPipe.git",
+    "directory": "node-template"
+  },
+  "homepage": "https://github.com/Aakif-Kohari/CogniPipe/tree/main/node-template#readme",
+  "bugs": {
+    "url": "https://github.com/Aakif-Kohari/CogniPipe/issues"
+  },
+  "author": "Aakif Kohari <kohariaakif@gmail.com>",
+  "keywords": [
+    "cognipipe",
+    "workflow",
+    "automation",
+    "pipeline",
+    "typescript"
+  ],
+  "files": [
+    "dist"
+  ]
 }

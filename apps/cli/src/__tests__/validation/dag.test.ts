@@ -69,6 +69,17 @@ describe('detectCycles', () => {
     ]);
     expect(cycles).toEqual([]);
   });
+
+  it('handles a 20,000-step deep chain without quadratic path copying', () => {
+    const N = 20_000;
+    const steps = Array.from({ length: N }, (_, i) => ({
+      name: `s${i}`,
+      dependsOn: i === N - 1 ? [] : [`s${i + 1}`],
+    }));
+    const start = Date.now();
+    expect(detectCycles(steps)).toEqual([]);
+    expect(Date.now() - start).toBeLessThan(10000);
+  }, 15000);
 });
 
 describe('validateDependsOnReferences', () => {
@@ -136,5 +147,13 @@ describe('topologicalSort', () => {
       { name: 'b', dependsOn: ['a'] },
     ]);
     expect(order).toBeNull();
+  });
+
+  it('ignores dangling dependsOn references and returns a valid order', () => {
+    const order = topologicalSort([
+      { name: 'a', dependsOn: ['missing-step'] }, // Dangling reference
+      { name: 'b', dependsOn: ['a'] },
+    ]);
+    expect(order).toEqual(['a', 'b']);
   });
 });

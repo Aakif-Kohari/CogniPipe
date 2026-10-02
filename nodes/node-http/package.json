@@ -47,6 +47,18 @@
     "url": "https://github.com/Aakif-Kohari/CogniPipe.git",
     "directory": "nodes/node-http"
   },
+  "homepage": "https://github.com/Aakif-Kohari/CogniPipe/tree/main/nodes/node-http#readme",
+  "bugs": {
+    "url": "https://github.com/Aakif-Kohari/CogniPipe/issues"
+  },
+  "author": "Aakif Kohari <kohariaakif@gmail.com>",
+  "keywords": [
+    "cognipipe",
+    "workflow",
+    "automation",
+    "pipeline",
+    "typescript"
+  ],
   "publishConfig": {
     "access": "public",
     "provenance": true

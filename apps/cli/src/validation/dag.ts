@@ -18,8 +18,6 @@ type Color = 'WHITE' | 'GRAY' | 'BLACK';
 interface DfsFrame {
   /** Name of the step this frame is visiting. */
   name: string;
-  /** Path from the DFS root to this step (inclusive), used to render a cycle if one is found. */
-  path: string[];
   /** Index into this step's `dependsOn` array of the next dependency to visit. */
   depIndex: number;
 }
@@ -56,7 +54,9 @@ export function detectCycles(steps: Array<{ name: string; dependsOn?: string[] }
     }
 
     colors.set(root.name, 'GRAY');
-    const stack: DfsFrame[] = [{ name: root.name, path: [root.name], depIndex: 0 }];
+    const stack: DfsFrame[] = [{ name: root.name, depIndex: 0 }];
+    const activePath: string[] = [root.name];
+    const pathIndex = new Map<string, number>([[root.name, 0]]);
 
     while (stack.length > 0) {
       const frame = stack[stack.length - 1];
@@ -72,6 +72,8 @@ export function detectCycles(steps: Array<{ name: string; dependsOn?: string[] }
         // All dependencies visited — this step is fully processed.
         colors.set(frame.name, 'BLACK');
         stack.pop();
+        activePath.pop();
+        pathIndex.delete(frame.name);
         continue;
       }
 
@@ -87,15 +89,19 @@ export function detectCycles(steps: Array<{ name: string; dependsOn?: string[] }
 
       if (depColor === 'GRAY') {
         // Found a back-edge into a node still on the current path — that's a cycle.
-        const cycleStart = frame.path.indexOf(dep);
-        const cyclePath = frame.path.slice(Math.max(0, cycleStart)).concat(dep);
+        const cycleStart =
+          pathIndex.get(dep) ??
+          /* istanbul ignore next -- GRAY nodes are always on the active path */ 0;
+        const cyclePath = activePath.slice(cycleStart).concat(dep);
         cycles.push(`Circular dependency: ${cyclePath.join(' → ')}`);
         continue;
       }
 
       if (depColor === 'WHITE') {
         colors.set(dep, 'GRAY');
-        stack.push({ name: dep, path: [...frame.path, dep], depIndex: 0 });
+        stack.push({ name: dep, depIndex: 0 });
+        pathIndex.set(dep, activePath.length);
+        activePath.push(dep);
       }
 
       // BLACK: already fully explored via another path — nothing to do.

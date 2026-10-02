@@ -12,8 +12,14 @@ OpenAI nodes for CogniPipe workflows.
 
 ```yaml
 steps:
+  - name: fetch-data
+    uses: '@cognipipe/node-http'
+    config:
+      url: 'https://example.com/data'
+
   - name: summarize
     uses: '@cognipipe/node-openai'
+    dependsOn: ['fetch-data']
     config:
       model: gpt-4o
       prompt: 'Summarize: {{ steps.fetch-data.output.body }}'

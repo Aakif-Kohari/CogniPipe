@@ -108,4 +108,22 @@ describe('MockContext', () => {
     expect(result).toBe(malicious);
     expect(Date.now() - start).toBeLessThan(200);
   });
+
+  it('throws when a final path segment resolves to null', () => {
+    const ctx = new MockContext({ a: { b: null } });
+
+    expect(() => ctx.interpolate('{{ a.b }}')).toThrow('no value found for this path');
+  });
+
+  it('serializes an object as a JSON string via interpolate()', () => {
+    const ctx = new MockContext({ data: { payload: { x: 1 } } });
+
+    expect(ctx.interpolate('{{ data.payload }}')).toBe('{"x":1}');
+  });
+
+  it('serializes an array as a JSON string via interpolate()', () => {
+    const ctx = new MockContext({ data: { items: ['a', 'b'] } });
+
+    expect(ctx.interpolate('{{ data.items }}')).toBe('["a","b"]');
+  });
 });
