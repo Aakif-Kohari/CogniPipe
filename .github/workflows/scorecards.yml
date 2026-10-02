@@ -74,6 +74,6 @@ jobs:
         # SECURITY FIX: The official template uses `@v3` (mutable). Scorecard
         # will penalize your score for using mutable tags. Pinned to SHA to
         # maintain a perfect Pinned-Dependencies score.
-        uses: github/codeql-action/upload-sarif@ce28f5bb42b7a9f2c824e633a3f6ee835bab6858 # v3.29.0
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           sarif_file: results.sarif
