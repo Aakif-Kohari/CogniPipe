@@ -1,4 +1,8 @@
-Copy to `nodes/node-<service>` and run `pnpm install`.
+Copy this folder to `nodes/node-<service>`, then:
+
+1. Rename `name`, `description`, `repository.directory` and `homepage` in `package.json`, the `type` in `@CogniNode()`, and the `MyNode` class/file.
+2. Run `pnpm install` and commit the updated `pnpm-lock.yaml` (CI uses `--frozen-lockfile`).
+3. Delete this block (everything above the title).
 
 ---
 
@@ -14,26 +18,26 @@ pnpm add @cognipipe/node-CHANGEME
 
 ## Usage
 
-```yaml
+​```yaml
 steps:
-  - name: my-step
-    uses: '@cognipipe/node-CHANGEME'
-    config:
-      # document all config options here
-```
+
+- name: my-step
+  uses: '@cognipipe/node-CHANGEME'
+  config:
+  message: hello
+  ​```
 
 ## Configuration
 
-| Option    | Type     | Required | Description                 |
-| --------- | -------- | -------- | --------------------------- |
-| `option1` | `string` | ✅       | Description                 |
-| `option2` | `number` | ❌       | Description (default: `10`) |
+| Option    | Type     | Required | Description                  |
+| --------- | -------- | -------- | ---------------------------- |
+| `message` | `string` | ✅       | Non-empty text to echo back. |
 
 ## Output
 
-| Field    | Type     | Description |
-| -------- | -------- | ----------- |
-| `result` | `string` | Description |
+| Field    | Type     | Description              |
+| -------- | -------- | ------------------------ |
+| `echoed` | `string` | The `message` you passed |
 
 ## Environment Variables
 

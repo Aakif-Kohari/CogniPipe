@@ -7,8 +7,8 @@ Requires Node.js >= 22.14. Ships ESM and CommonJS builds.
 ## Install
 
 ```bash
-npm install @cognipipe/core
-# or: pnpm add @cognipipe/core
+npm install @cognipipe/core @cognipipe/node-http
+# or: pnpm add @cognipipe/core @cognipipe/node-http
 ```
 
 ## Quick start

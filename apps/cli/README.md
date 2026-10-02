@@ -52,6 +52,7 @@ Structure         ✅ Valid
 dependsOn refs    ✅ All 1 reference resolves
 Circular deps     ✅ No cycles detected
 Node availability ✅ @cognipipe/node-http (found)
+                  ✅ @cognipipe/node-http (found)
 Execution order:
   1. fetch-fact (@cognipipe/node-http)
   2. post-fact  (@cognipipe/node-http)

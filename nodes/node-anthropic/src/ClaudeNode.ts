@@ -253,7 +253,7 @@ export class ClaudeNode extends BaseNode {
     const data = maybe as AnthropicMessageResponse;
     const textBlock = data.content.find(block => block.type === 'text');
 
-    // B6 Fix: Explicitly throw if the model returns tool-use or refusal blocks without text
+    // Fail loudly when the model returns only tool-use/refusal blocks (no text content).
     if (textBlock === undefined || typeof textBlock.text !== 'string') {
       throw new CogniPipeError(
         'Anthropic API returned no text content block (the response may contain only tool-use or refusal blocks).',

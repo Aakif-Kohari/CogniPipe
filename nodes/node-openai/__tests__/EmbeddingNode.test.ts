@@ -1,5 +1,5 @@
 import { EmbeddingNode } from '../src/EmbeddingNode.js';
-import { CogniPipeError, COGNIPIPE_ERROR_CODES } from '@cognipipe/core';
+import { CogniPipeError, isCogniPipeError, COGNIPIPE_ERROR_CODES } from '@cognipipe/core';
 import type { IExecutionContext, NodeConfig } from '@cognipipe/types';
 
 const ORIGINAL_ENV = process.env;
@@ -178,7 +178,7 @@ describe('EmbeddingNode', () => {
     try {
       await node.execute(baseConfig, mockCtx);
     } catch (err) {
-      expect(err).toBeInstanceOf(CogniPipeError);
+      expect(isCogniPipeError(err)).toBe(true);
       expect((err as CogniPipeError).message).toContain('truncated');
       expect((err as CogniPipeError).message.length).toBeLessThan(700);
     }

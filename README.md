@@ -66,6 +66,8 @@ cognipipe run workflow.yaml
 cognipipe test workflow.yaml
 ```
 
+> The example above is illustrative: `node-github`, `node-slack` and `node-openai` are not published yet (see [Available Nodes](#available-nodes)).
+
 ---
 
 ## Architecture
@@ -108,16 +110,12 @@ pnpm add -g cognipipe
 ```bash
 # Scaffold a new workflow project
 mkdir my-pipeline && cd my-pipeline
-pnpm init && pnpm add cognipipe @cognipipe/node-http   # nodes must be installed alongside the CLI
-# create workflow.yaml (see example above), then:
-pnpm exec cognipipe test workflow.yaml
-pnpm exec cognipipe run workflow.yaml
+npm init -y
+npm install cognipipe @cognipipe/node-http   # nodes must be installed alongside the CLI
 
-# Install a node
-pnpm add @cognipipe/node-http @cognipipe/node-openai
-
-# Run the example workflow
-cognipipe run workflow.yaml
+# create workflow.yaml (paste the two-step example from apps/cli/README.md)
+npx cognipipe test workflow.yaml   # validate only, executes nothing
+npx cognipipe run workflow.yaml    # execute the workflow
 ```
 
 ### Verifying Package Authenticity
@@ -143,7 +141,7 @@ This confirms packages were published by the authenticated CI/CD pipeline and ha
 | GitHub       | `@cognipipe/node-github`    | 🚧 Stub                            | Issues, PRs, repos, webhooks                       |
 | Transform    | `@cognipipe/node-transform` | 🚧 Stub                            | JSON, CSV, text operations                         |
 
-> **Note:** `@cognipipe/node-http` is the only one fully implemented and published node at this time. The others are scaffolded stubs ready for community contribution!
+> **Note:** `@cognipipe/node-http` is the only published node. OpenAI and Anthropic are implemented but not yet published; Slack, GitHub and Transform are stubs ready for community contribution!
 
 > **Want a new node?**
 > [Request one](https://github.com/Aakif-Kohari/CogniPipe/issues/new?template=node_request.yml)
