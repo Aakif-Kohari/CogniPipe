@@ -16,21 +16,21 @@ Add an HTTP step to your workflow:
 
 ```yaml
 steps:
-  - name: fetch-user
+  - name: get-token
     uses: '@cognipipe/node-http'
     config:
-      url: 'https://api.example.com/users/123'
-      method: GET
-      timeout: 10000
+      url: 'https://api.example.com/auth/token'
+      method: POST
 
   - name: create-post
     uses: '@cognipipe/node-http'
+    dependsOn: ['get-token']
     config:
       url: 'https://api.example.com/posts'
       method: POST
       headers:
         Content-Type: 'application/json'
-        Authorization: 'Bearer {{ steps.get-token.output.token }}'
+        Authorization: 'Bearer {{ steps.get-token.output.body.token }}'
       body: '{"title":"Hello","content":"World"}'
       timeout: 15000
 ```
@@ -78,7 +78,7 @@ Request headers as key-value pairs. Supports interpolation with `{{ }}` syntax.
 ```yaml
 config:
   headers:
-    Authorization: 'Bearer {{ steps.get-token.output.token }}'
+    Authorization: 'Bearer {{ steps.get-token.output.body.token }}'
     Content-Type: 'application/json'
     X-Custom-Header: 'custom-value'
 ```
@@ -89,10 +89,12 @@ config:
 
 Request body. Ignored for GET and DELETE requests. Supports interpolation.
 
+_(Note: `<step>` must be listed in `dependsOn` if referencing its output)._
+
 ```yaml
 config:
   method: POST
-  body: '{"name":"{{ steps.upstream-step.output.name }}","active":true}'
+  body: '{"name":"{{ steps.get-token.output.body.name }}","active":true}'
 ```
 
 ### `timeout` (optional)
@@ -146,21 +148,21 @@ steps:
     config:
       url: 'https://api.example.com/data'
 
-  - name: log-result
-    uses: '@cognipipe/node-log'
+  - name: report-status
+    uses: '@cognipipe/node-http'
+    dependsOn: ['fetch-data']
     config:
-      message: 'Status: {{ steps.fetch-data.output.status }} — Body: {{ steps.fetch-data.output.body }}'
+      url: 'https://api.example.com/log'
+      method: POST
+      body: '{"status": "{{ steps.fetch-data.output.status }}"}'
 ```
 
 ## Error Handling
 
-The node throws `CogniPipeError` with code `STEP_EXECUTION_FAILED` for:
+- Invalid configuration throws `CogniPipeError` with code `NODE_CONFIG_INVALID`.
+- Network failures, timeouts, and other execution errors throw `CogniPipeError` with code `STEP_EXECUTION_FAILED`.
 
-- Network failures (DNS, connection refused, etc.)
-- Request timeouts
-- Invalid configuration (caught before execution)
-
-All errors include the target URL and method in the error context for debugging.
+All execution errors include the target URL and method in the error context for debugging.
 
 ## Notes
 

@@ -1,5 +1,5 @@
 import { ClaudeNode } from '../src/index';
-import { CogniPipeError, COGNIPIPE_ERROR_CODES } from '@cognipipe/core';
+import { CogniPipeError, isCogniPipeError, COGNIPIPE_ERROR_CODES } from '@cognipipe/core';
 import type { IExecutionContext, NodeConfig } from '@cognipipe/types';
 
 const ORIGINAL_ENV = process.env;
@@ -139,6 +139,30 @@ describe('ClaudeNode', () => {
     );
   });
 
+  it('does not double the slash when baseUrl ends with "/"', async () => {
+    mockFetchOnce(anthropicSuccessBody);
+    await node.execute(
+      { ...baseConfig, baseUrl: 'https://gateway.example.com/v1/' } as NodeConfig,
+      mockCtx,
+    );
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://gateway.example.com/v1/messages',
+      expect.anything(),
+    );
+  });
+
+  it('preserves a query string on baseUrl', async () => {
+    mockFetchOnce(anthropicSuccessBody);
+    await node.execute(
+      { ...baseConfig, baseUrl: 'https://gw.example.com/v1?api-version=2024' } as NodeConfig,
+      mockCtx,
+    );
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://gw.example.com/v1/messages?api-version=2024',
+      expect.anything(),
+    );
+  });
+
   it("throws CogniPipeError(NODE_CONFIG_INVALID) when temperature > 1 (Anthropic range is 0-1, not OpenAI's 0-2)", async () => {
     await expect(
       node.execute({ ...baseConfig, temperature: 1.5 } as NodeConfig, mockCtx),
@@ -198,6 +222,23 @@ describe('ClaudeNode', () => {
     });
   });
 
+  it('truncates an oversized provider error body in the message', async () => {
+    expect.assertions(3);
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+      text: async () => 'x'.repeat(5_000),
+    } as unknown as Response);
+    try {
+      await node.execute(baseConfig, mockCtx);
+    } catch (err) {
+      expect(isCogniPipeError(err)).toBe(true);
+      expect((err as CogniPipeError).message).toContain('truncated');
+      expect((err as CogniPipeError).message.length).toBeLessThan(700);
+    }
+  });
+
   it('throws CogniPipeError(STEP_EXECUTION_FAILED) on network failure', async () => {
     global.fetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
 
@@ -218,6 +259,24 @@ describe('ClaudeNode', () => {
     await expect(node.execute(baseConfig, mockCtx)).rejects.toMatchObject({
       code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
     });
+  });
+
+  it('throws STEP_EXECUTION_FAILED when no text block is returned', async () => {
+    expect.assertions(2);
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        content: [{ type: 'tool_use', id: '1', name: 'test', input: {} }],
+        model: 'claude-sonnet-5',
+        usage: { input_tokens: 10, output_tokens: 5 },
+      }),
+    } as unknown as Response);
+    try {
+      await node.execute(baseConfig, mockCtx);
+    } catch (err) {
+      expect(isCogniPipeError(err)).toBe(true);
+      expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED);
+    }
   });
 
   it('throws CogniPipeError(STEP_EXECUTION_FAILED) when the response body is not valid JSON', async () => {

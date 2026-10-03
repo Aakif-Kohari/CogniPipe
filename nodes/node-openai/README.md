@@ -12,8 +12,14 @@ OpenAI nodes for CogniPipe workflows.
 
 ```yaml
 steps:
+  - name: fetch-data
+    uses: '@cognipipe/node-http'
+    config:
+      url: 'https://example.com/data'
+
   - name: summarize
     uses: '@cognipipe/node-openai'
+    dependsOn: ['fetch-data']
     config:
       model: gpt-4o
       prompt: 'Summarize: {{ steps.fetch-data.output.body }}'
@@ -101,3 +107,4 @@ model: '{{ steps.embed-query.output.aiMeta.modelUsed }}'
 - Non-2xx response from OpenAI → `CogniPipeError(STEP_EXECUTION_FAILED)` (message includes the HTTP status).
 - Network failure or request timeout (30s) → `CogniPipeError(STEP_EXECUTION_FAILED)`.
 - Malformed response or token count mismatch → `CogniPipeError(STEP_EXECUTION_FAILED)`.
+- Provider error bodies are truncated to 500 characters in the message.

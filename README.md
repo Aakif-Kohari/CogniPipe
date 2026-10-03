@@ -37,6 +37,7 @@ workflow your team needs.
 ```yaml
 # workflow.yaml
 name: summarize-github-issues
+version: '1.0.0'
 steps:
   - name: fetch-issues
     uses: '@cognipipe/node-github'
@@ -47,12 +48,14 @@ steps:
 
   - name: summarize
     uses: '@cognipipe/node-openai'
+    dependsOn: ['fetch-issues']
     config:
       model: gpt-4o
       prompt: 'Summarize these issues into a daily digest: {{ steps.fetch-issues.output.issues }}'
 
   - name: post-to-slack
     uses: '@cognipipe/node-slack'
+    dependsOn: ['summarize']
     config:
       channel: '#engineering'
       text: '{{ steps.summarize.output.content }}'
@@ -62,6 +65,8 @@ steps:
 cognipipe run workflow.yaml
 cognipipe test workflow.yaml
 ```
+
+> The example above is illustrative: `node-github`, `node-slack` and `node-openai` are not published yet (see [Available Nodes](#available-nodes)).
 
 ---
 
@@ -89,8 +94,8 @@ _(Note: `@cognipipe/core`, `@cognipipe/sdk`, `@cognipipe/types`, and `@cognipipe
 
 ### Prerequisites
 
-- Node.js >= 22
-- pnpm >= 9
+- Node.js >= 22.14
+- pnpm >= 11.10.0 (contributors only; use corepack enable)
 
 ### Install
 
@@ -100,18 +105,29 @@ npm install -g cognipipe
 pnpm add -g cognipipe
 ```
 
+> The CLI loads node packages from its own installation, so install nodes in the same place (the per-project setup below keeps both together).
+
 ### Run your first workflow
 
 ```bash
 # Scaffold a new workflow project
-cognipipe init my-pipeline
-cd my-pipeline
+mkdir my-pipeline && cd my-pipeline
+npm init -y
+npm install cognipipe @cognipipe/node-http   # nodes must be installed alongside the CLI
 
-# Install a node
-pnpm add @cognipipe/node-http @cognipipe/node-openai
+cat > workflow.yaml <<'EOF'
+name: hello-world
+version: '1.0.0'
+steps:
+  - name: fetch-fact
+    uses: '@cognipipe/node-http'
+    config:
+      url: 'https://catfact.ninja/fact'
+      method: GET
+EOF
 
-# Run the example workflow
-cognipipe run workflow.yaml
+npx cognipipe test workflow.yaml   # validate only, executes nothing
+npx cognipipe run workflow.yaml    # execute the workflow
 ```
 
 ### Verifying Package Authenticity
@@ -128,16 +144,16 @@ This confirms packages were published by the authenticated CI/CD pipeline and ha
 
 ## Available Nodes
 
-| Node         | Package                     | Status       | Description                                        |
-| ------------ | --------------------------- | ------------ | -------------------------------------------------- |
-| HTTP Request | `@cognipipe/node-http`      | ✅ Published | Generic HTTP calls — GET, POST, PUT, DELETE        |
-| OpenAI       | `@cognipipe/node-openai`    | 🚧 Stub      | ChatCompletion, Embeddings (gpt-4o, gpt-3.5-turbo) |
-| Anthropic    | `@cognipipe/node-anthropic` | 🚧 Stub      | Claude API (claude-3-5-sonnet, claude-3-haiku)     |
-| Slack        | `@cognipipe/node-slack`     | 🚧 Stub      | Send messages, post to channels                    |
-| GitHub       | `@cognipipe/node-github`    | 🚧 Stub      | Issues, PRs, repos, webhooks                       |
-| Transform    | `@cognipipe/node-transform` | 🚧 Stub      | JSON, CSV, text operations                         |
+| Node         | Package                     | Status                             | Description                                        |
+| ------------ | --------------------------- | ---------------------------------- | -------------------------------------------------- |
+| HTTP Request | `@cognipipe/node-http`      | ✅ Published                       | Generic HTTP calls — GET, POST, PUT, DELETE        |
+| OpenAI       | `@cognipipe/node-openai`    | 🔒 Implemented (not yet published) | ChatCompletion, Embeddings (gpt-4o, gpt-3.5-turbo) |
+| Anthropic    | `@cognipipe/node-anthropic` | 🔒 Implemented (not yet published) | Claude API (claude-sonnet-5, claude-haiku-4-5)     |
+| Slack        | `@cognipipe/node-slack`     | 🚧 Stub                            | Send messages, post to channels                    |
+| GitHub       | `@cognipipe/node-github`    | 🚧 Stub                            | Issues, PRs, repos, webhooks                       |
+| Transform    | `@cognipipe/node-transform` | 🚧 Stub                            | JSON, CSV, text operations                         |
 
-> **Note:** `@cognipipe/node-http` is the only one fully implemented and published node at this time. The others are scaffolded stubs ready for community contribution!
+> **Note:** `@cognipipe/node-http` is the only published node. OpenAI and Anthropic are implemented but not yet published; Slack, GitHub and Transform are stubs ready for community contribution!
 
 > **Want a new node?**
 > [Request one](https://github.com/Aakif-Kohari/CogniPipe/issues/new?template=node_request.yml)

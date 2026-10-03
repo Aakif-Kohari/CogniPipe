@@ -40,9 +40,6 @@
     "turbo": "^2.11.5",
     "typescript": "^5.9.3"
   },
-  "overrides": {
-    "js-yaml": "^4.2.0"
-  },
   "repository": {
     "type": "git",
     "url": "https://github.com/Aakif-Kohari/CogniPipe.git"
@@ -50,6 +47,13 @@
   "author": "Aakif Kohari <kohariaakif@gmail.com>",
   "license": "MIT",
   "homepage": "https://github.com/Aakif-Kohari/CogniPipe#readme",
+  "keywords": [
+    "cognipipe",
+    "workflow",
+    "automation",
+    "pipeline",
+    "typescript"
+  ],
   "bugs": {
     "url": "https://github.com/Aakif-Kohari/CogniPipe/issues"
   }

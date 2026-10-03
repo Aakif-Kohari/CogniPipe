@@ -1,0 +1,14 @@
+{
+  // Paths assume the template has been copied to nodes/<name>/ (two levels below the repo root).
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "types": ["jest", "node"],
+    "module": "CommonJS",
+    // Same pairing as packages/core and packages/sdk: ts-jest compiles files individually
+    // and never raises TS5110 for it. If it ever does, switch to "node10".
+    "moduleResolution": "node16"
+  },
+  "include": ["src/**/__tests__/**/*.ts", "src/**/*.test.ts"]
+}

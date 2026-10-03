@@ -85,14 +85,16 @@ export function resolveDotPath(obj: unknown, path: string): unknown {
  * because the executor stores all step results under the `steps` key:
  * `{ steps: { 'fetch-issues': { output: { ... } } } }`.
  *
- * Resolved values are coerced to strings via `String()`.
+ * Resolved values are coerced to strings via `String()`. Objects and arrays
+ * are serialized as JSON strings to prevent `[object Object]` coercion.
  * A string containing no `{{ }}` tokens is returned unchanged.
  *
  * @param template - A string potentially containing `{{ expr }}` tokens.
  * @param context  - The ExecutionContext to resolve expressions against.
  * @returns The fully resolved string.
  * @throws {CogniPipeError} INTERPOLATION_ERROR — if any expression resolves
- *   to `undefined`, `null`, or the expression is empty.
+ *   to `undefined`, `null`, or the expression is empty, or if the value
+ *   cannot be serialized to JSON.
  *
  * @example
  * ```typescript
@@ -142,6 +144,28 @@ export function resolveTemplate(template: string, context: IExecutionContext): s
       );
     }
 
-    return String(resolvedValue);
+    if (typeof resolvedValue !== 'object') {
+      return String(resolvedValue);
+    }
+
+    // Objects/arrays would become "[object Object]" / "a,b" via String(); embed them as JSON.
+    let json: string | undefined;
+    let cause: Error | undefined;
+    try {
+      json = JSON.stringify(resolvedValue);
+    } catch (err) {
+      cause = err instanceof Error ? err : undefined;
+    }
+    if (json === undefined) {
+      throw new CogniPipeError(
+        `Context interpolation failed: "{{ ${expression} }}" — the resolved value could not be serialized to JSON (circular reference, BigInt, or a toJSON() that threw or returned nothing).`,
+        {
+          code: COGNIPIPE_ERROR_CODES.INTERPOLATION_ERROR,
+          context: { expression, rootKey, remainderPath },
+          cause,
+        },
+      );
+    }
+    return json;
   });
 }

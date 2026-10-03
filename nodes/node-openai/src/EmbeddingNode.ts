@@ -1,4 +1,4 @@
-import { BaseNode, CogniNode } from '@cognipipe/sdk';
+import { BaseNode, CogniNode, defineConfig } from '@cognipipe/sdk';
 import type { IExecutionContext, NodeConfig, NodeOutput } from '@cognipipe/types';
 import type { AiProviderConfig } from '@cognipipe/types';
 import { CogniPipeError, COGNIPIPE_ERROR_CODES } from '@cognipipe/core';
@@ -14,6 +14,9 @@ const EmbeddingConfigSchema = z.object({
   /** Text to embed. */
   input: z.string().min(1, 'input must be a non-empty string'),
 });
+
+/** Runtime-validated config parser. */
+const EmbeddingConfigParser = defineConfig(EmbeddingConfigSchema);
 
 /** Runtime-validated config, inferred from the Zod schema above. */
 export type EmbeddingConfig = z.input<typeof EmbeddingConfigSchema>;
@@ -50,6 +53,27 @@ export interface EmbeddingNodeOutput extends NodeOutput {
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 const DEFAULT_TIMEOUT_MS = 30_000;
 
+/** Maximum characters of a provider error body echoed into an error message. */
+const MAX_ERROR_BODY_CHARS = 500;
+
+/** Keeps provider error bodies from flooding logs; bounds message size only. */
+function truncateErrorBody(body: string): string {
+  return body.length > MAX_ERROR_BODY_CHARS
+    ? `${body.slice(0, MAX_ERROR_BODY_CHARS)}… [truncated, ${body.length - MAX_ERROR_BODY_CHARS} more characters]`
+    : body;
+}
+
+/** Joins baseUrl + endpoint without double slashes and without mangling query strings. */
+function buildEndpointUrl(baseUrl: string, endpoint: string): string {
+  const url = new URL(baseUrl);
+  let pathname = url.pathname;
+  while (pathname.endsWith('/')) {
+    pathname = pathname.slice(0, -1);
+  }
+  url.pathname = `${pathname}/${endpoint}`;
+  return url.toString();
+}
+
 /** Shape of a successful OpenAI Embeddings API response. */
 interface OpenAiEmbeddingResponse {
   data: Array<{ embedding: number[] }>;
@@ -79,7 +103,7 @@ interface OpenAiEmbeddingResponse {
 @CogniNode({ type: '@cognipipe/node-openai-embedding', version: '1.0.0' })
 export class EmbeddingNode extends BaseNode {
   async execute(config: NodeConfig, _ctx: IExecutionContext): Promise<EmbeddingNodeOutput> {
-    const cfg = this.validateConfig(EmbeddingConfigSchema, config);
+    const cfg = EmbeddingConfigParser.parse(config);
 
     const apiKey = process.env[cfg.apiKeyEnv];
     if (!apiKey) {
@@ -107,7 +131,7 @@ export class EmbeddingNode extends BaseNode {
 
     try {
       try {
-        response = await fetch(`${baseUrl}/embeddings`, {
+        response = await fetch(buildEndpointUrl(baseUrl, 'embeddings'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -152,10 +176,13 @@ export class EmbeddingNode extends BaseNode {
           throw err;
         }
 
-        throw new CogniPipeError(`OpenAI API returned ${response.status}: ${errBody}`, {
-          code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
-          context: { status: response.status },
-        });
+        throw new CogniPipeError(
+          `OpenAI API returned ${response.status}: ${truncateErrorBody(errBody)}`,
+          {
+            code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+            context: { status: response.status },
+          },
+        );
       }
 
       try {

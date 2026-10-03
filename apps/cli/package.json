@@ -42,6 +42,18 @@
     "url": "https://github.com/Aakif-Kohari/CogniPipe.git",
     "directory": "apps/cli"
   },
+  "homepage": "https://github.com/Aakif-Kohari/CogniPipe/tree/main/apps/cli#readme",
+  "bugs": {
+    "url": "https://github.com/Aakif-Kohari/CogniPipe/issues"
+  },
+  "author": "Aakif Kohari <kohariaakif@gmail.com>",
+  "keywords": [
+    "cognipipe",
+    "workflow",
+    "automation",
+    "pipeline",
+    "typescript"
+  ],
   "publishConfig": {
     "access": "public",
     "provenance": true

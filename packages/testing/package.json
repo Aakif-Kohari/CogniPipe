@@ -31,5 +31,17 @@
     "url": "https://github.com/Aakif-Kohari/CogniPipe.git",
     "directory": "packages/testing"
   },
+  "homepage": "https://github.com/Aakif-Kohari/CogniPipe/tree/main/packages/testing#readme",
+  "bugs": {
+    "url": "https://github.com/Aakif-Kohari/CogniPipe/issues"
+  },
+  "author": "Aakif Kohari <kohariaakif@gmail.com>",
+  "keywords": [
+    "cognipipe",
+    "workflow",
+    "automation",
+    "pipeline",
+    "typescript"
+  ],
   "private": true
 }

@@ -48,6 +48,18 @@
     "url": "https://github.com/Aakif-Kohari/CogniPipe.git",
     "directory": "nodes/node-anthropic"
   },
+  "homepage": "https://github.com/Aakif-Kohari/CogniPipe/tree/main/nodes/node-anthropic#readme",
+  "bugs": {
+    "url": "https://github.com/Aakif-Kohari/CogniPipe/issues"
+  },
+  "author": "Aakif Kohari <kohariaakif@gmail.com>",
+  "keywords": [
+    "cognipipe",
+    "workflow",
+    "automation",
+    "pipeline",
+    "typescript"
+  ],
   "files": [
     "dist"
   ]

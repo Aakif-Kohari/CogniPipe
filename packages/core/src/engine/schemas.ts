@@ -43,12 +43,42 @@ export const StepConfigSchema = z.object({
 /**
  * Zod schema for WorkflowConfig.
  * The top-level schema used by WorkflowValidator to validate raw parsed YAML.
+ *
+ * Enforces structural validity via Zod, and cross-step referential integrity
+ * via `.superRefine()`:
+ * - Step names must be unique within the workflow.
+ * - Any step listed in `dependsOn` must be defined somewhere in the workflow steps.
  */
-export const WorkflowConfigSchema = z.object({
-  name: z.string().min(1, 'Workflow "name" must be a non-empty string'),
-  version: z
-    .string()
-    .regex(/^\d+\.\d+\.\d+$/, 'Workflow "version" must follow semver (e.g. "1.0.0")'),
-  description: z.string().optional(),
-  steps: z.array(StepConfigSchema).min(1, 'Workflow must have at least one step'),
-});
+export const WorkflowConfigSchema = z
+  .object({
+    name: z.string().min(1, 'Workflow "name" must be a non-empty string'),
+    version: z
+      .string()
+      .regex(/^\d+\.\d+\.\d+$/, 'Workflow "version" must follow semver (e.g. "1.0.0")'),
+    description: z.string().optional(),
+    steps: z.array(StepConfigSchema).min(1, 'Workflow must have at least one step'),
+  })
+  .superRefine((workflow, ctx) => {
+    const names = new Set<string>();
+    workflow.steps.forEach((step, index) => {
+      if (names.has(step.name)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['steps', index, 'name'],
+          message: `Duplicate step name "${step.name}". Step names must be unique within a workflow`,
+        });
+      }
+      names.add(step.name);
+    });
+    workflow.steps.forEach((step, index) => {
+      step.dependsOn?.forEach((dep, depIndex) => {
+        if (!names.has(dep)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['steps', index, 'dependsOn', depIndex],
+            message: `Step "${step.name}" depends on "${dep}" which is not defined in this workflow`,
+          });
+        }
+      });
+    });
+  });

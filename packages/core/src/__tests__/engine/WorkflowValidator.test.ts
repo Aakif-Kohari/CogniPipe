@@ -605,6 +605,55 @@ describe('WorkflowValidator', () => {
     });
   });
 
+  describe('Cross-step validation (superRefine)', () => {
+    it('rejects duplicate step names', () => {
+      expect.assertions(3);
+      try {
+        validator.validate({
+          name: 'test-wf',
+          version: '1.0.0',
+          steps: [
+            { name: 'fetch-data', uses: '@cognipipe/node-http' },
+            { name: 'fetch-data', uses: '@cognipipe/node-http' },
+          ],
+        });
+      } catch (err) {
+        expect(isCogniPipeError(err)).toBe(true);
+        expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.WORKFLOW_VALIDATION_ERROR);
+        expect((err as CogniPipeError).message).toContain('Duplicate step name "fetch-data"');
+      }
+    });
+
+    it('rejects dangling dependsOn references', () => {
+      expect.assertions(3);
+      try {
+        validator.validate({
+          name: 'test-wf',
+          version: '1.0.0',
+          steps: [{ name: 'step-a', uses: '@cognipipe/node-http', dependsOn: ['missing-step'] }],
+        });
+      } catch (err) {
+        expect(isCogniPipeError(err)).toBe(true);
+        expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.WORKFLOW_VALIDATION_ERROR);
+        expect((err as CogniPipeError).message).toContain(
+          'depends on "missing-step" which is not defined',
+        );
+      }
+    });
+
+    it('accepts forward references in dependsOn', () => {
+      const config = validator.validate({
+        name: 'test-wf',
+        version: '1.0.0',
+        steps: [
+          { name: 'step-a', uses: '@cognipipe/node-http', dependsOn: ['step-b'] },
+          { name: 'step-b', uses: '@cognipipe/node-http' },
+        ],
+      });
+      expect(config.steps).toHaveLength(2);
+    });
+  });
+
   describe('error structure', () => {
     it('produces a fully-shaped, serialisable CogniPipeError for a representative failure', () => {
       expect.assertions(6);

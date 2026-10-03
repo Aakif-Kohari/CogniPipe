@@ -59,6 +59,9 @@ export class MockContext implements IExecutionContext {
    * inherited `Object.prototype` members (`toString`, `constructor`, etc.)
    * never resolve.
    *
+   * Objects and arrays are serialized as JSON strings to match production
+   * interpolation behavior. `null` values are treated as missing paths.
+   *
    * @throws {Error} Plain `Error` (never `CogniPipeError`) when a token
    *   can't be resolved — MockContext has no dependency on
    *   `@cognipipe/core`'s error types.
@@ -80,11 +83,26 @@ export class MockContext implements IExecutionContext {
         current = (current as Record<string, unknown>)[segment];
       }
 
-      if (current === undefined) {
+      if (current === undefined || current === null) {
         throw new Error(`Cannot interpolate "{{ ${expression} }}": no value found for this path.`);
       }
 
-      return String(current);
+      if (typeof current !== 'object') {
+        return String(current);
+      }
+
+      let json: string | undefined;
+      try {
+        json = JSON.stringify(current);
+      } catch {
+        json = undefined;
+      }
+      if (json === undefined) {
+        throw new Error(
+          `Cannot interpolate "{{ ${expression} }}": the value could not be serialized to JSON.`,
+        );
+      }
+      return json;
     });
   }
 

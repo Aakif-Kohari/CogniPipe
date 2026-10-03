@@ -17,7 +17,12 @@ import { z } from 'zod';
  */
 const HttpNodeConfigSchema = z.object({
   /** Target URL — must be a valid http or https URL. */
-  url: z.string().url('url must be a valid http or https URL'),
+  url: z
+    .string()
+    .url('url must be a valid http or https URL')
+    .refine(value => /^https?:\/\//i.test(value), {
+      message: 'url must use the http or https protocol',
+    }),
   /** HTTP method. Defaults to GET when omitted. */
   method: z.enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH']).default('GET'),
   /** Request headers as key-value string pairs. */

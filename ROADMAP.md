@@ -11,16 +11,16 @@
 - [x] `@cognipipe/sdk` — BaseNode class + decorators _(Published to npm)_
 - [x] `@cognipipe/core` — WorkflowParser, WorkflowValidator, WorkflowExecutor _(Published to npm)_
 - [x] `@cognipipe/node-http` — generic HTTP node _(Published to npm)_
-- [ ] `@cognipipe/node-openai` — OpenAI integration _(Stub)_
-- [x] `cognipipe` CLI — run, init, test commands _(Published to npm)_
+- [x] `@cognipipe/node-openai` — OpenAI integration _(implemented, not yet published)_
+- [x] `cognipipe` CLI — run and test commands _(Published to npm)_
 
 ## 🔄 Phase 1 — Node Ecosystem
 
-- [ ] `@cognipipe/node-anthropic`
+- [x] `@cognipipe/node-anthropic` _(implemented, not yet published)_
 - [ ] `@cognipipe/node-slack`
 - [ ] `@cognipipe/node-github`
 - [ ] `@cognipipe/node-transform`
-- [ ] Parallel node execution (DAG)
+- [x] Parallel node execution (DAG)
 - [x] Retry logic with exponential backoff _(Shipped in `@cognipipe/core`)_
 - [x] Context variable interpolation _(Shipped in `@cognipipe/core`)_
 

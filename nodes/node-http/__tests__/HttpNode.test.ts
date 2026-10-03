@@ -1,6 +1,6 @@
 import { HttpNode, type HttpNodeOutput } from '../src/index';
 import type { IExecutionContext } from '@cognipipe/types';
-import { CogniPipeError, COGNIPIPE_ERROR_CODES } from '@cognipipe/core';
+import { CogniPipeError, isCogniPipeError, COGNIPIPE_ERROR_CODES } from '@cognipipe/core';
 
 // Mock fetch before each test
 const mockFetch = jest.fn();
@@ -405,7 +405,7 @@ describe('HttpNode', () => {
       try {
         await node.execute({}, mockContext);
       } catch (err) {
-        expect(err).toBeInstanceOf(CogniPipeError);
+        expect(isCogniPipeError(err)).toBe(true);
         expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
       }
     });
@@ -416,7 +416,7 @@ describe('HttpNode', () => {
       try {
         await node.execute({ url: 'not-a-url' }, mockContext);
       } catch (err) {
-        expect(err).toBeInstanceOf(CogniPipeError);
+        expect(isCogniPipeError(err)).toBe(true);
         expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
       }
     });
@@ -427,7 +427,7 @@ describe('HttpNode', () => {
       try {
         await node.execute({ url: 'https://api.example.com', method: 'INVALID' }, mockContext);
       } catch (err) {
-        expect(err).toBeInstanceOf(CogniPipeError);
+        expect(isCogniPipeError(err)).toBe(true);
         expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
       }
     });
@@ -438,7 +438,7 @@ describe('HttpNode', () => {
       try {
         await node.execute({ url: 'https://api.example.com', timeout: 99 }, mockContext);
       } catch (err) {
-        expect(err).toBeInstanceOf(CogniPipeError);
+        expect(isCogniPipeError(err)).toBe(true);
         expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
       }
     });
@@ -449,7 +449,31 @@ describe('HttpNode', () => {
       try {
         await node.execute({ url: 'https://api.example.com', timeout: 30001 }, mockContext);
       } catch (err) {
-        expect(err).toBeInstanceOf(CogniPipeError);
+        expect(isCogniPipeError(err)).toBe(true);
+        expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
+      }
+    });
+  });
+
+  describe('protocol enforcement', () => {
+    it('rejects ftp:// URLs with NODE_CONFIG_INVALID', async () => {
+      expect.assertions(2);
+      const node = new HttpNode();
+      try {
+        await node.execute({ url: 'ftp://example.com/x' }, mockContext);
+      } catch (err) {
+        expect(isCogniPipeError(err)).toBe(true);
+        expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
+      }
+    });
+
+    it('rejects file:// URLs with NODE_CONFIG_INVALID', async () => {
+      expect.assertions(2);
+      const node = new HttpNode();
+      try {
+        await node.execute({ url: 'file:///etc/passwd' }, mockContext);
+      } catch (err) {
+        expect(isCogniPipeError(err)).toBe(true);
         expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
       }
     });
@@ -464,7 +488,7 @@ describe('HttpNode', () => {
       try {
         await node.execute({ url: 'https://api.example.com' }, mockContext);
       } catch (err) {
-        expect(err).toBeInstanceOf(CogniPipeError);
+        expect(isCogniPipeError(err)).toBe(true);
         expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED);
       }
     });
@@ -489,7 +513,7 @@ describe('HttpNode', () => {
       try {
         await node.execute({ url: 'https://api.example.com' }, mockContext);
       } catch (err) {
-        expect(err).toBeInstanceOf(CogniPipeError);
+        expect(isCogniPipeError(err)).toBe(true);
         expect((err as CogniPipeError).message).toContain('raw string failure');
       }
     });
@@ -511,7 +535,7 @@ describe('HttpNode', () => {
       try {
         await node.execute({ url: 'https://api.example.com', timeout: 100 }, mockContext);
       } catch (err) {
-        expect(err).toBeInstanceOf(CogniPipeError);
+        expect(isCogniPipeError(err)).toBe(true);
         expect((err as CogniPipeError).message).toContain('timed out');
       }
     });

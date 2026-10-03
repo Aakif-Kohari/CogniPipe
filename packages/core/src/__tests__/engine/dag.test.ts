@@ -71,4 +71,14 @@ describe('detectCycles', () => {
     const steps = [buildStep('a', ['does-not-exist']), buildStep('b', ['a'])];
     expect(detectCycles(steps)).toEqual([]);
   });
+
+  it('handles a 20,000-step deep chain without quadratic path copying', () => {
+    const N = 20_000;
+    const steps = Array.from({ length: N }, (_, i) =>
+      buildStep(`s${i}`, i === N - 1 ? [] : [`s${i + 1}`]),
+    );
+    const start = Date.now();
+    expect(detectCycles(steps)).toEqual([]);
+    expect(Date.now() - start).toBeLessThan(10000);
+  }, 15000);
 });

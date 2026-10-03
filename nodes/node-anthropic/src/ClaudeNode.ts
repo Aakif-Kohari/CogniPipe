@@ -1,4 +1,4 @@
-import { BaseNode, CogniNode } from '@cognipipe/sdk';
+import { BaseNode, CogniNode, defineConfig } from '@cognipipe/sdk';
 import type { IExecutionContext, NodeConfig } from '@cognipipe/types';
 import type { AiProviderConfig, AiNodeOutput } from '@cognipipe/types';
 import { CogniPipeError, COGNIPIPE_ERROR_CODES } from '@cognipipe/core';
@@ -44,6 +44,9 @@ const ClaudeConfigSchema = z.object({
   prompt: z.string().min(1, 'prompt must be a non-empty string'),
 });
 
+/** Runtime-validated config parser. */
+const ClaudeConfigParser = defineConfig(ClaudeConfigSchema);
+
 /** Runtime-validated config, inferred from the Zod schema above. */
 export type ClaudeConfig = z.input<typeof ClaudeConfigSchema>;
 
@@ -60,6 +63,27 @@ export interface ClaudeNodeConfig extends AiProviderConfig {
 const DEFAULT_BASE_URL = 'https://api.anthropic.com/v1';
 const ANTHROPIC_API_VERSION = '2023-06-01';
 const DEFAULT_TIMEOUT_MS = 30_000;
+
+/** Maximum characters of a provider error body echoed into an error message. */
+const MAX_ERROR_BODY_CHARS = 500;
+
+/** Keeps provider error bodies from flooding logs; bounds message size only. */
+function truncateErrorBody(body: string): string {
+  return body.length > MAX_ERROR_BODY_CHARS
+    ? `${body.slice(0, MAX_ERROR_BODY_CHARS)}… [truncated, ${body.length - MAX_ERROR_BODY_CHARS} more characters]`
+    : body;
+}
+
+/** Joins baseUrl + endpoint without double slashes and without mangling query strings. */
+function buildEndpointUrl(baseUrl: string, endpoint: string): string {
+  const url = new URL(baseUrl);
+  let pathname = url.pathname;
+  while (pathname.endsWith('/')) {
+    pathname = pathname.slice(0, -1);
+  }
+  url.pathname = `${pathname}/${endpoint}`;
+  return url.toString();
+}
 
 /** Shape of a successful Anthropic Messages API response. */
 interface AnthropicMessageResponse {
@@ -80,8 +104,13 @@ interface AnthropicMessageResponse {
  * @example
  * ```yaml
  * steps:
+ *   - name: fetch-data
+ *     uses: '@cognipipe/node-http'
+ *     config:
+ *       url: 'https://example.com/data'
  *   - name: summarize
  *     uses: '@cognipipe/node-anthropic'
+ *     dependsOn: ['fetch-data']
  *     config:
  *       model: claude-sonnet-5
  *       prompt: 'Summarize: {{ steps.fetch-data.output.body }}'
@@ -91,7 +120,7 @@ interface AnthropicMessageResponse {
 @CogniNode({ type: '@cognipipe/node-anthropic', version: '1.0.0' })
 export class ClaudeNode extends BaseNode {
   async execute(config: NodeConfig, _ctx: IExecutionContext): Promise<AiNodeOutput> {
-    const cfg = this.validateConfig(ClaudeConfigSchema, config);
+    const cfg = ClaudeConfigParser.parse(config);
 
     const apiKey = process.env[cfg.apiKeyEnv];
     if (!apiKey) {
@@ -130,7 +159,7 @@ export class ClaudeNode extends BaseNode {
 
     try {
       try {
-        response = await fetch(`${baseUrl}/messages`, {
+        response = await fetch(buildEndpointUrl(baseUrl, 'messages'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -169,10 +198,13 @@ export class ClaudeNode extends BaseNode {
 
       if (!response.ok) {
         const errBody = await response.text();
-        throw new CogniPipeError(`Anthropic API returned ${response.status}: ${errBody}`, {
-          code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
-          context: { status: response.status },
-        });
+        throw new CogniPipeError(
+          `Anthropic API returned ${response.status}: ${truncateErrorBody(errBody)}`,
+          {
+            code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+            context: { status: response.status },
+          },
+        );
       }
 
       try {
@@ -220,13 +252,25 @@ export class ClaudeNode extends BaseNode {
 
     const data = maybe as AnthropicMessageResponse;
     const textBlock = data.content.find(block => block.type === 'text');
+
+    // Fail loudly when the model returns only tool-use/refusal blocks (no text content).
+    if (textBlock === undefined || typeof textBlock.text !== 'string') {
+      throw new CogniPipeError(
+        'Anthropic API returned no text content block (the response may contain only tool-use or refusal blocks).',
+        {
+          code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+          context: { blockTypes: data.content.map(block => block.type) },
+        },
+      );
+    }
+
     const latencyMs = Date.now() - startTime;
 
     const inputTokens = data.usage.input_tokens;
     const outputTokens = data.usage.output_tokens;
 
     return {
-      content: textBlock?.text,
+      content: textBlock.text,
       aiMeta: {
         // Anthropic's usage.* -> aiMeta.* per AiExecutionMetadata JSDoc.
         // totalTokens is COMPUTED as inputTokens + outputTokens — Anthropic
