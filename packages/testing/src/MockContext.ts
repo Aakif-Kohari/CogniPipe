@@ -87,7 +87,22 @@ export class MockContext implements IExecutionContext {
         throw new Error(`Cannot interpolate "{{ ${expression} }}": no value found for this path.`);
       }
 
-      return typeof current === 'object' ? JSON.stringify(current) : String(current);
+      if (typeof current !== 'object') {
+        return String(current);
+      }
+
+      let json: string | undefined;
+      try {
+        json = JSON.stringify(current);
+      } catch {
+        json = undefined;
+      }
+      if (json === undefined) {
+        throw new Error(
+          `Cannot interpolate "{{ ${expression} }}": the value could not be serialized to JSON.`,
+        );
+      }
+      return json;
     });
   }
 

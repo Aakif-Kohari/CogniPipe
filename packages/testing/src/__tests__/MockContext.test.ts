@@ -126,4 +126,16 @@ describe('MockContext', () => {
 
     expect(ctx.interpolate('{{ data.items }}')).toBe('["a","b"]');
   });
+
+  it('throws when a value cannot be serialized (circular)', () => {
+    const circular: Record<string, unknown> = {};
+    circular['self'] = circular;
+    const ctx = new MockContext({ a: { circular } });
+    expect(() => ctx.interpolate('{{ a.circular }}')).toThrow('could not be serialized');
+  });
+
+  it('throws when toJSON() returns nothing', () => {
+    const ctx = new MockContext({ a: { weird: { toJSON: () => undefined } } });
+    expect(() => ctx.interpolate('{{ a.weird }}')).toThrow('could not be serialized');
+  });
 });

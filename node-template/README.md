@@ -43,10 +43,6 @@ steps:
 
 This template reads none. If your node needs credentials, read them from `process.env` and document each variable here.
 
-| Variable     | Description          |
-| ------------ | -------------------- |
-| `MY_API_KEY` | API key for CHANGEME |
-
 ## License
 
 MIT © [Aakif Kohari](https://github.com/Aakif-Kohari)

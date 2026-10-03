@@ -107,4 +107,4 @@ model: '{{ steps.embed-query.output.aiMeta.modelUsed }}'
 - Non-2xx response from OpenAI → `CogniPipeError(STEP_EXECUTION_FAILED)` (message includes the HTTP status).
 - Network failure or request timeout (30s) → `CogniPipeError(STEP_EXECUTION_FAILED)`.
 - Malformed response or token count mismatch → `CogniPipeError(STEP_EXECUTION_FAILED)`.
-- Provider error bodies are truncated to 500 characters in the message
+- Provider error bodies are truncated to 500 characters in the message.

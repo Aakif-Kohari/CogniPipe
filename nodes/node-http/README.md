@@ -88,6 +88,7 @@ config:
 **Type:** `string`
 
 Request body. Ignored for GET and DELETE requests. Supports interpolation.
+
 _(Note: `<step>` must be listed in `dependsOn` if referencing its output)._
 
 ```yaml

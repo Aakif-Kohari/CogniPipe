@@ -64,4 +64,4 @@ model: '{{ steps.summarize.output.aiMeta.modelUsed }}'
 - Network failure or request timeout (30s) → `CogniPipeError(STEP_EXECUTION_FAILED)`.
 - Malformed response → `CogniPipeError(STEP_EXECUTION_FAILED)`.
 - A response with no `text` content block (e.g. only tool-use or refusal blocks) → `CogniPipeError(STEP_EXECUTION_FAILED)`.
-- Provider error bodies are truncated to 500 characters in the message
+- Provider error bodies are truncated to 500 characters in the message.
