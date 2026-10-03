@@ -93,7 +93,8 @@ export function resolveDotPath(obj: unknown, path: string): unknown {
  * @param context  - The ExecutionContext to resolve expressions against.
  * @returns The fully resolved string.
  * @throws {CogniPipeError} INTERPOLATION_ERROR — if any expression resolves
- *   to `undefined`, `null`, or the expression is empty.
+ *   to `undefined`, `null`, or the expression is empty, or if the value
+ *   cannot be serialized to JSON.
  *
  * @example
  * ```typescript
@@ -143,9 +144,28 @@ export function resolveTemplate(template: string, context: IExecutionContext): s
       );
     }
 
+    if (typeof resolvedValue !== 'object') {
+      return String(resolvedValue);
+    }
+
     // Objects/arrays would become "[object Object]" / "a,b" via String(); embed them as JSON.
-    return typeof resolvedValue === 'object'
-      ? JSON.stringify(resolvedValue)
-      : String(resolvedValue);
+    let json: string | undefined;
+    let cause: Error | undefined;
+    try {
+      json = JSON.stringify(resolvedValue);
+    } catch (err) {
+      cause = err instanceof Error ? err : undefined;
+    }
+    if (json === undefined) {
+      throw new CogniPipeError(
+        `Context interpolation failed: "{{ ${expression} }}" — the resolved value could not be serialized to JSON (circular reference, BigInt, or a toJSON() that threw or returned nothing).`,
+        {
+          code: COGNIPIPE_ERROR_CODES.INTERPOLATION_ERROR,
+          context: { expression, rootKey, remainderPath },
+          cause,
+        },
+      );
+    }
+    return json;
   });
 }

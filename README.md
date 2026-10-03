@@ -105,6 +105,8 @@ npm install -g cognipipe
 pnpm add -g cognipipe
 ```
 
+> The CLI loads node packages from its own installation, so install nodes in the same place (the per-project setup below keeps both together).
+
 ### Run your first workflow
 
 ```bash
@@ -113,7 +115,17 @@ mkdir my-pipeline && cd my-pipeline
 npm init -y
 npm install cognipipe @cognipipe/node-http   # nodes must be installed alongside the CLI
 
-# create workflow.yaml (paste the two-step example from apps/cli/README.md)
+cat > workflow.yaml <<'EOF'
+name: hello-world
+version: '1.0.0'
+steps:
+  - name: fetch-fact
+    uses: '@cognipipe/node-http'
+    config:
+      url: 'https://catfact.ninja/fact'
+      method: GET
+EOF
+
 npx cognipipe test workflow.yaml   # validate only, executes nothing
 npx cognipipe run workflow.yaml    # execute the workflow
 ```

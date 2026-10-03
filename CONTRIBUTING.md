@@ -196,5 +196,5 @@ cognipipe/
 - **Error messages must be actionable** — `throw new Error('Step "fetch" not found. Did you define it before referencing it in "dependsOn"?')`
 - **Environment variables via config** — never hardcode API keys; always read from `process.env`
 - Run `pnpm format` to auto-fix formatting before committing
-- Every relative import in production source (`packages/*/src`, `nodes/*/src`, `apps/*/src`) needs an explicit .js extension. Test files may omit it (Jest's moduleNameMapper accepts both); apps/cli tests use .ts.
+- Every relative import in production source (`packages/*/src`, `nodes/*/src`, `apps/*/src`) needs an explicit `.js` extension. In tests, `packages/*` and `nodes/*` may omit it (Jest's `moduleNameMapper` accepts both); `apps/cli` tests must use explicit `.ts` extensions (see above).
 - Use `isCogniPipeError()` in tests, never instanceof.

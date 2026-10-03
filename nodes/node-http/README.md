@@ -16,21 +16,21 @@ Add an HTTP step to your workflow:
 
 ```yaml
 steps:
-  - name: fetch-user
+  - name: get-token
     uses: '@cognipipe/node-http'
     config:
-      url: 'https://api.example.com/users/123'
-      method: GET
-      timeout: 10000
+      url: 'https://api.example.com/auth/token'
+      method: POST
 
   - name: create-post
     uses: '@cognipipe/node-http'
+    dependsOn: ['get-token']
     config:
       url: 'https://api.example.com/posts'
       method: POST
       headers:
         Content-Type: 'application/json'
-        Authorization: 'Bearer {{ steps.get-token.output.token }}'
+        Authorization: 'Bearer {{ steps.get-token.output.body.token }}'
       body: '{"title":"Hello","content":"World"}'
       timeout: 15000
 ```
@@ -78,7 +78,7 @@ Request headers as key-value pairs. Supports interpolation with `{{ }}` syntax.
 ```yaml
 config:
   headers:
-    Authorization: 'Bearer {{ steps.get-token.output.token }}'
+    Authorization: 'Bearer {{ steps.get-token.output.body.token }}'
     Content-Type: 'application/json'
     X-Custom-Header: 'custom-value'
 ```
@@ -88,11 +88,12 @@ config:
 **Type:** `string`
 
 Request body. Ignored for GET and DELETE requests. Supports interpolation.
+_(Note: `<step>` must be listed in `dependsOn` if referencing its output)._
 
 ```yaml
 config:
   method: POST
-  body: '{"name":"{{ steps.upstream-step.output.name }}","active":true}'
+  body: '{"name":"{{ steps.get-token.output.body.name }}","active":true}'
 ```
 
 ### `timeout` (optional)

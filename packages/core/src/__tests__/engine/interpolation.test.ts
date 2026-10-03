@@ -1,6 +1,6 @@
 import { resolveDotPath, resolveTemplate } from '../../engine/interpolation';
 import { ExecutionContext } from '../../engine/ExecutionContext';
-import { CogniPipeError } from '../../errors/CogniPipeError';
+import { CogniPipeError, isCogniPipeError } from '../../errors/CogniPipeError';
 import { COGNIPIPE_ERROR_CODES } from '../../errors/errorCodes';
 
 describe('resolveDotPath', () => {
@@ -102,7 +102,7 @@ describe('resolveTemplate', () => {
     } catch (err) {
       thrown = err;
     }
-    expect(thrown instanceof CogniPipeError).toBe(true);
+    expect(isCogniPipeError(thrown)).toBe(true);
     expect((thrown as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.INTERPOLATION_ERROR);
     expect((thrown as CogniPipeError).message).toContain('foo');
   });
@@ -119,7 +119,7 @@ describe('resolveTemplate', () => {
     } catch (err) {
       thrown = err;
     }
-    expect(thrown instanceof CogniPipeError).toBe(true);
+    expect(isCogniPipeError(thrown)).toBe(true);
     expect((thrown as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.INTERPOLATION_ERROR);
     expect((thrown as CogniPipeError).message).toContain('foo.bar');
   });
@@ -131,7 +131,7 @@ describe('resolveTemplate', () => {
     } catch (err) {
       thrown = err;
     }
-    expect(thrown instanceof CogniPipeError).toBe(true);
+    expect(isCogniPipeError(thrown)).toBe(true);
     expect((thrown as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.INTERPOLATION_ERROR);
     expect((thrown as CogniPipeError).message).toContain('steps.missing-step.output');
   });
@@ -143,7 +143,7 @@ describe('resolveTemplate', () => {
     } catch (err) {
       thrown = err;
     }
-    expect(thrown instanceof CogniPipeError).toBe(true);
+    expect(isCogniPipeError(thrown)).toBe(true);
     expect((thrown as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.INTERPOLATION_ERROR);
     expect((thrown as CogniPipeError).message).toContain('nonexistent');
   });
@@ -155,7 +155,7 @@ describe('resolveTemplate', () => {
     } catch (err) {
       thrown = err;
     }
-    expect(thrown instanceof CogniPipeError).toBe(true);
+    expect(isCogniPipeError(thrown)).toBe(true);
     expect((thrown as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.INTERPOLATION_ERROR);
   });
 
@@ -171,6 +171,52 @@ describe('resolveTemplate', () => {
       data: { items: [1, 2, 3] },
     });
     expect(resolveTemplate('{{ data.items }}', arrCtx)).toBe('[1,2,3]');
+  });
+
+  it('throws INTERPOLATION_ERROR (not a TypeError) for a circular object', () => {
+    const circular: Record<string, unknown> = {};
+    circular['self'] = circular;
+    const circularCtx = new ExecutionContext({ data: { circular } });
+    let thrown: unknown;
+    try {
+      resolveTemplate('{{ data.circular }}', circularCtx);
+    } catch (err) {
+      thrown = err;
+    }
+    expect(isCogniPipeError(thrown)).toBe(true);
+    expect((thrown as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.INTERPOLATION_ERROR);
+  });
+
+  it('throws INTERPOLATION_ERROR when toJSON() returns nothing', () => {
+    const weirdCtx = new ExecutionContext({ data: { weird: { toJSON: () => undefined } } });
+    let thrown: unknown;
+    try {
+      resolveTemplate('{{ data.weird }}', weirdCtx);
+    } catch (err) {
+      thrown = err;
+    }
+    expect(isCogniPipeError(thrown)).toBe(true);
+  });
+
+  it('throws INTERPOLATION_ERROR when toJSON() throws a non-Error value', () => {
+    const ctx = new ExecutionContext({
+      data: {
+        weird: {
+          toJSON: () => {
+            throw 'not an error';
+          },
+        },
+      },
+    });
+    let thrown: unknown;
+    try {
+      resolveTemplate('{{ data.weird }}', ctx);
+    } catch (err) {
+      thrown = err;
+    }
+    expect(isCogniPipeError(thrown)).toBe(true);
+    expect((thrown as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.INTERPOLATION_ERROR);
+    expect((thrown as CogniPipeError).cause).toBeUndefined();
   });
 });
 
@@ -210,6 +256,7 @@ describe('resolveTemplate — ReDoS resistance (CodeQL js/polynomial-redos)', ()
     const template = '{{   steps.fetch-issues.output.count   }}';
     expect(resolveTemplate(template, ctx)).toBe('42');
   });
+
   it('resolves instantly on many repeated unterminated openers (quadratic-scan regression)', () => {
     const malicious = '{{'.repeat(60_000);
     const start = Date.now();
