@@ -125,6 +125,56 @@ describe('ClaudeNode', () => {
     );
   });
 
+  it('accepts claude-haiku-4-5-20251001 and sends it as body.model', async () => {
+    mockFetchOnce(anthropicSuccessBody);
+
+    await node.execute(
+      { ...baseConfig, model: 'claude-haiku-4-5-20251001' } as NodeConfig,
+      mockCtx,
+    );
+
+    const callArgs = (global.fetch as jest.Mock).mock.calls[0][1] as {
+      body: string;
+    };
+
+    expect(JSON.parse(callArgs.body)).toMatchObject({
+      model: 'claude-haiku-4-5-20251001',
+    });
+  });
+
+  it('sends exactly the required request body fields when optional fields are omitted', async () => {
+    mockFetchOnce(anthropicSuccessBody);
+
+    await node.execute(baseConfig, mockCtx);
+
+    const callArgs = (global.fetch as jest.Mock).mock.calls[0][1] as {
+      body: string;
+    };
+
+    expect(JSON.parse(callArgs.body)).toEqual({
+      model: 'claude-sonnet-5',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: 'Summarize this text' }],
+    });
+  });
+
+  it('includes temperature when it is explicitly configured', async () => {
+    mockFetchOnce(anthropicSuccessBody);
+
+    await node.execute({ ...baseConfig, temperature: 0.2 } as NodeConfig, mockCtx);
+
+    const callArgs = (global.fetch as jest.Mock).mock.calls[0][1] as {
+      body: string;
+    };
+
+    expect(JSON.parse(callArgs.body)).toEqual({
+      model: 'claude-sonnet-5',
+      max_tokens: 1024,
+      temperature: 0.2,
+      messages: [{ role: 'user', content: 'Summarize this text' }],
+    });
+  });
+
   it('overrides the default Anthropic endpoint with a custom baseUrl', async () => {
     mockFetchOnce(anthropicSuccessBody);
 
@@ -170,6 +220,29 @@ describe('ClaudeNode', () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
+  it.each([0, -1])(
+    'throws CogniPipeError(NODE_CONFIG_INVALID) when maxTokens is %s',
+    async maxTokens => {
+      await expect(
+        node.execute({ ...baseConfig, maxTokens } as NodeConfig, mockCtx),
+      ).rejects.toMatchObject({
+        code: COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID,
+      });
+
+      expect(global.fetch).not.toHaveBeenCalled();
+    },
+  );
+
+  it('throws CogniPipeError(NODE_CONFIG_INVALID) when temperature is below 0', async () => {
+    await expect(
+      node.execute({ ...baseConfig, temperature: -0.1 } as NodeConfig, mockCtx),
+    ).rejects.toMatchObject({
+      code: COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID,
+    });
+
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it('accepts temperature at the upper bound of 1', async () => {
     mockFetchOnce(anthropicSuccessBody);
 
@@ -193,6 +266,22 @@ describe('ClaudeNode', () => {
     ).rejects.toBeInstanceOf(CogniPipeError);
   });
 
+  it('reads the API key from a custom apiKeyEnv and sends it as x-api-key', async () => {
+    process.env.MY_CLAUDE_KEY = 'custom-test-key';
+    mockFetchOnce(anthropicSuccessBody);
+
+    await node.execute({ ...baseConfig, apiKeyEnv: 'MY_CLAUDE_KEY' } as NodeConfig, mockCtx);
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://api.anthropic.com/v1/messages',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'x-api-key': 'custom-test-key',
+        }),
+      }),
+    );
+  });
+
   it('throws CogniPipeError(NODE_CONFIG_INVALID) for an empty prompt', async () => {
     await expect(
       node.execute({ ...baseConfig, prompt: '' } as NodeConfig, mockCtx),
@@ -204,6 +293,16 @@ describe('ClaudeNode', () => {
       node.execute({ ...baseConfig, streaming: true } as NodeConfig, mockCtx),
     ).rejects.toMatchObject({ code: COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID });
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('accepts an explicit streaming: false configuration', async () => {
+    mockFetchOnce(anthropicSuccessBody);
+
+    await expect(
+      node.execute({ ...baseConfig, streaming: false } as NodeConfig, mockCtx),
+    ).resolves.toBeDefined();
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
   it('throws CogniPipeError(NODE_CONFIG_INVALID) when baseUrl is not https', async () => {
@@ -277,6 +376,94 @@ describe('ClaudeNode', () => {
       expect(isCogniPipeError(err)).toBe(true);
       expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED);
     }
+  });
+
+  it.each([
+    {
+      name: 'content is not an array',
+      body: {
+        content: 'not-an-array',
+        model: 'claude-sonnet-5',
+        usage: { input_tokens: 10, output_tokens: 5 },
+      },
+    },
+    {
+      name: 'model is missing',
+      body: {
+        content: [{ type: 'text', text: 'ok' }],
+        usage: { input_tokens: 10, output_tokens: 5 },
+      },
+    },
+    {
+      name: 'usage is missing',
+      body: {
+        content: [{ type: 'text', text: 'ok' }],
+        model: 'claude-sonnet-5',
+      },
+    },
+    {
+      name: 'usage.output_tokens is missing',
+      body: {
+        content: [{ type: 'text', text: 'ok' }],
+        model: 'claude-sonnet-5',
+        usage: { input_tokens: 10 },
+      },
+    },
+    {
+      name: 'usage.input_tokens is a string',
+      body: {
+        content: [{ type: 'text', text: 'ok' }],
+        model: 'claude-sonnet-5',
+        usage: { input_tokens: '10', output_tokens: 5 },
+      },
+    },
+  ])('throws STEP_EXECUTION_FAILED when $name', async ({ body }) => {
+    mockFetchOnce(body);
+
+    await expect(node.execute(baseConfig, mockCtx)).rejects.toMatchObject({
+      code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+    });
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns the first text block when tool_use appears before multiple text blocks', async () => {
+    mockFetchOnce({
+      content: [
+        { type: 'tool_use', id: '1', name: 'test', input: {} },
+        { type: 'text', text: 'A' },
+        { type: 'text', text: 'B' },
+      ],
+      model: 'claude-sonnet-5',
+      usage: { input_tokens: 10, output_tokens: 5 },
+    });
+
+    const result = await node.execute(baseConfig, mockCtx);
+
+    expect(result.content).toBe('A');
+  });
+
+  it('populates aiMeta from the response model and reports latency without retry or fallback', async () => {
+    mockFetchOnce({
+      content: [{ type: 'text', text: 'Hello from Anthropic' }],
+      model: 'claude-haiku-4-5-20251001',
+      usage: { input_tokens: 10, output_tokens: 5 },
+    });
+
+    const result = await node.execute(
+      { ...baseConfig, model: 'claude-sonnet-5' } as NodeConfig,
+      mockCtx,
+    );
+
+    expect(result.aiMeta).toMatchObject({
+      modelUsed: 'claude-haiku-4-5-20251001',
+      retryCount: 0,
+      fallbackUsed: false,
+      completionReason: 'success',
+    });
+    expect(typeof result.aiMeta.latencyMs).toBe('number');
+    expect(result.aiMeta.latencyMs).toBeGreaterThanOrEqual(0);
+    expect(result.aiMeta.estimatedCostUsd).toBeUndefined();
+    expect(result.aiMeta.fallbackProviderUsed).toBeUndefined();
   });
 
   it('throws CogniPipeError(STEP_EXECUTION_FAILED) when the response body is not valid JSON', async () => {
