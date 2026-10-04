@@ -1,20 +1,31 @@
-# examples/hello-world/workflow.yaml
+# examples/ai-content-pipeline/workflow.yaml
 
-name: hello-world
+name: ai-content-pipeline
 version: '1.0.0'
-description: Fetches a public cat fact from an API and logs the result.
+description: Fetches a Hacker News story, asks OpenAI to write a short blurb, and posts it to Slack.
 
 steps:
-  - name: fetch-fact
+  - name: fetch-story
     uses: '@cognipipe/node-http'
     config:
-      url: 'https://catfact.ninja/fact'
+      url: 'https://hacker-news.firebaseio.com/v0/item/8863.json'
       method: GET
+      timeout: 10000
 
-  - name: log-result
-    uses: '@cognipipe/node-transform'
-    dependsOn: ['fetch-fact']
+  - name: write-blurb
+    uses: '@cognipipe/node-openai'
+    dependsOn: ['fetch-story']
+    retry: { attempts: 3, delayMs: 1000, backoff: exponential }
     config:
-      operation: pick
-      input: '{{ steps.fetch-fact.output.body }}'
-      fields: ['fact', 'length']
+      model: gpt-4o
+      apiKeyEnv: OPENAI_API_KEY
+      maxTokens: 200
+      prompt: 'Write a friendly two-sentence blurb for this link. Title: {{ steps.fetch-story.output.body.title }}. URL: {{ steps.fetch-story.output.body.url }}'
+
+  - name: post-to-slack
+    uses: '@cognipipe/node-slack'
+    dependsOn: ['write-blurb']
+    config:
+      tokenEnv: SLACK_BOT_TOKEN
+      channel: '#content-digest'
+      text: '{{ steps.write-blurb.output.content }}'
