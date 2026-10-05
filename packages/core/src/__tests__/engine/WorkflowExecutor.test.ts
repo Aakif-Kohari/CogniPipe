@@ -293,6 +293,362 @@ describe('WorkflowExecutor', () => {
       expect(result.stepErrors).toHaveLength(2);
       expect(result.stepErrors.map(e => e.stepName)).toEqual(['step-a', 'step-b']);
     });
+    it('records a beforeExecute failure with continueOnError and continues without calling execute', async () => {
+      const registry = new NodeRegistry();
+      let executeCalled = false;
+
+      class BeforeExecuteFailNode implements IBaseNode {
+        async beforeExecute(_config: NodeConfig, _ctx: IExecutionContext): Promise<void> {
+          throw new Error('beforeExecute failed');
+        }
+
+        async execute(_config: NodeConfig, _ctx: IExecutionContext): Promise<NodeOutput> {
+          executeCalled = true;
+          return { ok: true };
+        }
+      }
+
+      registry.register('@cognipipe/node-before-fail', BeforeExecuteFailNode);
+      registry.register('@cognipipe/node-echo', EchoNode);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        {
+          name: 'before-fail',
+          uses: '@cognipipe/node-before-fail',
+          config: {},
+          continueOnError: true,
+        },
+        { name: 'independent', uses: '@cognipipe/node-echo', config: { value: 1 } },
+      ]);
+
+      const result = await executor.run(config);
+
+      expect(result.stepErrors).toHaveLength(1);
+      expect(result.stepErrors[0].stepName).toBe('before-fail');
+      expect(result.stepErrors[0].error.message).toBe('beforeExecute failed');
+      expect(executeCalled).toBe(false);
+
+      const steps = result.context.get('steps') as Record<string, { output: unknown }>;
+      expect(steps['before-fail']).toBeUndefined();
+      expect(steps['independent'].output).toEqual({ echoed: { value: 1 } });
+    });
+
+    it('rejects with STEP_EXECUTION_FAILED and preserves the cause when beforeExecute fails without continueOnError', async () => {
+      expect.assertions(4);
+
+      const registry = new NodeRegistry();
+      const originalError = new Error('beforeExecute failed');
+      let executeCalled = false;
+
+      class BeforeExecuteFatalNode implements IBaseNode {
+        async beforeExecute(_config: NodeConfig, _ctx: IExecutionContext): Promise<void> {
+          throw originalError;
+        }
+
+        async execute(_config: NodeConfig, _ctx: IExecutionContext): Promise<NodeOutput> {
+          executeCalled = true;
+          return { ok: true };
+        }
+      }
+
+      registry.register('@cognipipe/node-before-fatal', BeforeExecuteFatalNode);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        { name: 'before-fatal', uses: '@cognipipe/node-before-fatal', config: {} },
+      ]);
+
+      let thrown: unknown;
+      try {
+        await executor.run(config);
+      } catch (err) {
+        thrown = err;
+      }
+
+      expect(isCogniPipeError(thrown)).toBe(true);
+      const error = thrown as { code: string; cause?: unknown };
+      expect(error.code).toBe(COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED);
+      expect(error.cause).toBe(originalError);
+      expect(executeCalled).toBe(false);
+    });
+
+    it('records its own config interpolation failure with continueOnError without calling execute', async () => {
+      const registry = new NodeRegistry();
+      let executeCalled = false;
+
+      class InterpolationSpyNode implements IBaseNode {
+        async execute(_config: NodeConfig, _ctx: IExecutionContext): Promise<NodeOutput> {
+          executeCalled = true;
+          return { ok: true };
+        }
+      }
+
+      registry.register('@cognipipe/node-interpolation-spy', InterpolationSpyNode);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        {
+          name: 'interpolation-fail',
+          uses: '@cognipipe/node-interpolation-spy',
+          config: { value: '{{ steps.nope.output.x }}' },
+          continueOnError: true,
+        },
+      ]);
+
+      const result = await executor.run(config);
+
+      expect(result.stepErrors).toHaveLength(1);
+      expect(result.stepErrors[0].stepName).toBe('interpolation-fail');
+      expect(executeCalled).toBe(false);
+
+      const steps = result.context.get('steps') as Record<string, unknown> | undefined;
+      expect(steps?.['interpolation-fail']).toBeUndefined();
+    });
+
+    it('records an afterExecute failure with continueOnError while retaining the already-written StepResult', async () => {
+      const registry = new NodeRegistry();
+      const afterError = new Error('afterExecute failed');
+
+      class AfterExecuteFailNode implements IBaseNode {
+        async execute(_config: NodeConfig, _ctx: IExecutionContext): Promise<NodeOutput> {
+          return { persisted: true };
+        }
+
+        async afterExecute(_output: NodeOutput, _ctx: IExecutionContext): Promise<void> {
+          throw afterError;
+        }
+      }
+
+      registry.register('@cognipipe/node-after-fail', AfterExecuteFailNode);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        {
+          name: 'after-fail',
+          uses: '@cognipipe/node-after-fail',
+          config: {},
+          continueOnError: true,
+        },
+      ]);
+
+      const result = await executor.run(config);
+
+      expect(result.stepErrors).toHaveLength(1);
+      expect(result.stepErrors[0].stepName).toBe('after-fail');
+      expect(result.stepErrors[0].error).toBe(afterError);
+
+      // Current behavior: the StepResult is written before afterExecute runs,
+      // so an afterExecute failure does not remove the already-stored result.
+      const steps = result.context.get('steps') as Record<string, { output: unknown }>;
+      expect(steps['after-fail'].output).toEqual({ persisted: true });
+    });
+
+    it('sorts stepErrors by declaration order even when a later-declared step fails first', async () => {
+      const registry = new NodeRegistry();
+      const completionOrder: string[] = [];
+      let releaseA: (() => void) | undefined;
+
+      const aGate = new Promise<void>(resolve => {
+        releaseA = resolve;
+      });
+
+      class DelayedFailNode implements IBaseNode {
+        async execute(): Promise<NodeOutput> {
+          await aGate;
+          completionOrder.push('a');
+          throw new Error('a failed');
+        }
+      }
+
+      class ImmediateFailNode implements IBaseNode {
+        async execute(): Promise<NodeOutput> {
+          completionOrder.push('b');
+          throw new Error('b failed');
+        }
+      }
+
+      registry.register('@cognipipe/node-delayed-fail', DelayedFailNode);
+      registry.register('@cognipipe/node-immediate-fail', ImmediateFailNode);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        {
+          name: 'a',
+          uses: '@cognipipe/node-delayed-fail',
+          config: {},
+          continueOnError: true,
+        },
+        {
+          name: 'b',
+          uses: '@cognipipe/node-immediate-fail',
+          config: {},
+          continueOnError: true,
+        },
+      ]);
+
+      const runPromise = executor.run(config);
+
+      for (let i = 0; i < 50 && !completionOrder.includes('b'); i++) {
+        await Promise.resolve();
+      }
+
+      expect(completionOrder).toEqual(['b']);
+
+      if (releaseA === undefined) {
+        throw new Error('Expected delayed step resolver to be initialized');
+      }
+      releaseA();
+
+      const result = await runPromise;
+
+      expect(completionOrder).toEqual(['b', 'a']);
+      expect(result.stepErrors.map(error => error.stepName)).toEqual(['a', 'b']);
+    });
+
+    it('treats explicit continueOnError: false the same as omitting it and rejects run()', async () => {
+      expect.assertions(2);
+
+      const registry = new NodeRegistry();
+      registry.register('@cognipipe/node-fail', FailNode);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        {
+          name: 'step-a',
+          uses: '@cognipipe/node-fail',
+          config: {},
+          continueOnError: false,
+        },
+      ]);
+
+      let thrown: unknown;
+      try {
+        await executor.run(config);
+      } catch (err) {
+        thrown = err;
+      }
+
+      expect(isCogniPipeError(thrown)).toBe(true);
+      expect((thrown as { code: string }).code).toBe(COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED);
+    });
+
+    it('does not let continueOnError suppress NODE_INSTANTIATION_FAILED from a throwing constructor', async () => {
+      expect.assertions(3);
+
+      const registry = new NodeRegistry();
+      const originalError = new Error('constructor failed');
+
+      class ConstructorFailNode implements IBaseNode {
+        constructor() {
+          throw originalError;
+        }
+
+        async execute(_config: NodeConfig, _ctx: IExecutionContext): Promise<NodeOutput> {
+          return { unreachable: true };
+        }
+      }
+
+      registry.register('@cognipipe/node-constructor-fail', ConstructorFailNode);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        {
+          name: 'constructor-fail',
+          uses: '@cognipipe/node-constructor-fail',
+          config: {},
+          continueOnError: true,
+        },
+      ]);
+
+      let thrown: unknown;
+      try {
+        await executor.run(config);
+      } catch (err) {
+        thrown = err;
+      }
+
+      expect(isCogniPipeError(thrown)).toBe(true);
+      const error = thrown as { code: string; cause?: unknown };
+      expect(error.code).toBe(COGNIPIPE_ERROR_CODES.NODE_INSTANTIATION_FAILED);
+      expect(error.cause).toBe(originalError);
+    });
+
+    it('does not let continueOnError suppress upfront NODE_NOT_REGISTERED and runs no other step', async () => {
+      expect.assertions(3);
+
+      const registry = new NodeRegistry();
+      let executeCalled = false;
+
+      class SpyNode implements IBaseNode {
+        async execute(_config: NodeConfig, _ctx: IExecutionContext): Promise<NodeOutput> {
+          executeCalled = true;
+          return { ok: true };
+        }
+      }
+
+      registry.register('@cognipipe/node-spy-continue', SpyNode);
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        { name: 'spy', uses: '@cognipipe/node-spy-continue', config: {} },
+        {
+          name: 'missing',
+          uses: '@cognipipe/node-missing',
+          config: {},
+          continueOnError: true,
+        },
+      ]);
+
+      let thrown: unknown;
+      try {
+        await executor.run(config);
+      } catch (err) {
+        thrown = err;
+      }
+
+      expect(isCogniPipeError(thrown)).toBe(true);
+      expect((thrown as { code: string }).code).toBe(COGNIPIPE_ERROR_CODES.NODE_NOT_REGISTERED);
+      expect(executeCalled).toBe(false);
+    });
+
+    it('does not let continueOnError suppress CIRCULAR_DEPENDENCY and instantiates no nodes', async () => {
+      expect.assertions(3);
+
+      const registry = new NodeRegistry();
+      registry.register('@cognipipe/node-echo', EchoNode);
+      const instantiateSpy = jest.spyOn(registry, 'instantiate');
+      const executor = new WorkflowExecutor(registry);
+
+      const config = buildWorkflow([
+        {
+          name: 'a',
+          uses: '@cognipipe/node-echo',
+          config: {},
+          dependsOn: ['b'],
+          continueOnError: true,
+        },
+        {
+          name: 'b',
+          uses: '@cognipipe/node-echo',
+          config: {},
+          dependsOn: ['a'],
+        },
+      ]);
+
+      let thrown: unknown;
+      try {
+        await executor.run(config);
+      } catch (err) {
+        thrown = err;
+      }
+
+      expect(isCogniPipeError(thrown)).toBe(true);
+      expect((thrown as { code: string }).code).toBe(COGNIPIPE_ERROR_CODES.CIRCULAR_DEPENDENCY);
+      expect(instantiateSpy).not.toHaveBeenCalled();
+
+      instantiateSpy.mockRestore();
+    });
   });
 
   describe('upfront validation', () => {
