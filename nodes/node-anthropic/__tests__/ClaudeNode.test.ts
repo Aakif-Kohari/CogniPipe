@@ -321,6 +321,20 @@ describe('ClaudeNode', () => {
     });
   });
 
+  it('surfaces HTTP 429 immediately without retrying (RetryManager is not wired in yet)', async () => {
+    expect.assertions(4);
+    mockFetchOnce({ error: 'rate limited' }, { ok: false, status: 429 });
+
+    try {
+      await node.execute(baseConfig, mockCtx);
+    } catch (err) {
+      expect(isCogniPipeError(err)).toBe(true);
+      expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED);
+      expect((err as CogniPipeError).message).toContain('429');
+    }
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
   it('truncates an oversized provider error body in the message', async () => {
     expect.assertions(3);
     global.fetch = jest.fn().mockResolvedValue({
