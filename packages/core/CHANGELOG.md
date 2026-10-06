@@ -1,5 +1,11 @@
 # @cognipipe/core
 
+## 0.4.1
+
+### Patch Changes
+
+- 3d877ba: Add regression coverage for `WorkflowExecutor` `continueOnError` semantics across lifecycle hooks, error ordering, explicit false values, and upfront failures.
+
 ## 0.4.0
 
 ### Minor Changes

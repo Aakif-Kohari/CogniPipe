@@ -1,5 +1,13 @@
 # @cognipipe/node-http
 
+## 0.1.10
+
+### Patch Changes
+
+- Updated dependencies [3d877ba]
+  - @cognipipe/core@0.4.1
+  - @cognipipe/sdk@0.2.3
+
 ## 0.1.9
 
 ### Patch Changes
