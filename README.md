@@ -261,6 +261,20 @@ All skill levels are welcome. The most common contribution is a **new node packa
                 </a>
             </td>
             <td align="center">
+                <a href="https://github.com/Chandana999-chan">
+                    <img src="https://avatars.githubusercontent.com/u/232610228?v=4" width="80;" alt="Chandana999-chan"/>
+                    <br />
+                    <sub><b>Chandana</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/misaelalves99">
+                    <img src="https://avatars.githubusercontent.com/u/112561288?v=4" width="80;" alt="misaelalves99"/>
+                    <br />
+                    <sub><b>Misael Alves</b></sub>
+                </a>
+            </td>
+            <td align="center">
                 <a href="https://github.com/Xayar145">
                     <img src="https://avatars.githubusercontent.com/u/199441672?v=4" width="80;" alt="Xayar145"/>
                     <br />
@@ -274,6 +288,8 @@ All skill levels are welcome. The most common contribution is a **new node packa
                     <sub><b>e_r_spell</b></sub>
                 </a>
             </td>
+		</tr>
+		<tr>
             <td align="center">
                 <a href="https://github.com/mikemikimike">
                     <img src="https://avatars.githubusercontent.com/u/186855910?v=4" width="80;" alt="mikemikimike"/>
