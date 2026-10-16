@@ -296,8 +296,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/types
       zod:
-        specifier: ^4.6.5
-        version: 4.6.5
+        specifier: ^4.6.6
+        version: 4.6.6
     devDependencies:
       '@types/jest':
         specifier: ^30.0.0
@@ -329,8 +329,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/types
       zod:
-        specifier: ^4.6.5
-        version: 4.6.5
+        specifier: ^4.6.6
+        version: 4.6.6
     devDependencies:
       '@types/jest':
         specifier: ^30.0.0
@@ -360,8 +360,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/types
       zod:
-        specifier: ^4.6.5
-        version: 4.6.5
+        specifier: ^4.6.6
+        version: 4.6.6
     devDependencies:
       '@types/jest':
         specifier: ^30.0.0
@@ -389,11 +389,11 @@ importers:
         specifier: workspace:*
         version: link:../types
       js-yaml:
-        specifier: ^5.4.2
-        version: 5.4.2
+        specifier: ^5.4.3
+        version: 5.4.3
       zod:
-        specifier: ^4.6.5
-        version: 4.6.5
+        specifier: ^4.6.6
+        version: 4.6.6
     devDependencies:
       '@types/js-yaml':
         specifier: ^4.0.9
@@ -411,8 +411,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       zod:
-        specifier: ^4.6.5
-        version: 4.6.5
+        specifier: ^4.6.6
+        version: 4.6.6
 
   packages/testing:
     dependencies:
@@ -2850,10 +2850,10 @@ packages:
       }
     hasBin: true
 
-  js-yaml@5.4.2:
+  js-yaml@5.4.3:
     resolution:
       {
-        integrity: sha512-m+aqu+LwO1O6sIopafj8HUVl5aawITwZQe/yHpMCKjaWBaA/d07B/QdMb3529REftiU+RMMHL3Vlsw3hON7vWg==,
+        integrity: sha512-yzzNtgczwgoVHNigCyKTXcQJU4Y8t/ikU4UxXW0BvrLfHTGWZhsNcOT2s/a7vn81/4KqVnNmHjaUEPlvWnNwVw==,
       }
     hasBin: true
 
@@ -3700,10 +3700,10 @@ packages:
       }
     engines: { node: '>=10' }
 
-  zod@4.6.5:
+  zod@4.6.6:
     resolution:
       {
-        integrity: sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q==,
+        integrity: sha512-4UmzQUF5fxvfcYHlbjBmejU+w+hbDnWFx4aS8kBx7nPBHcO2SqPbpAG8snbdg+Xse4pRefR98hgjFgIMCI/UhA==,
       }
 
 snapshots:
@@ -5461,7 +5461,7 @@ snapshots:
       argparse: 1.0.10
       esprima: 4.0.1
 
-  js-yaml@5.4.2:
+  js-yaml@5.4.3:
     dependencies:
       argparse: 2.0.1
 
@@ -5891,4 +5891,4 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  zod@4.6.5: {}
+  zod@4.6.6: {}
