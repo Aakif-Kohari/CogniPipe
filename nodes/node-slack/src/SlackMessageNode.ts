@@ -219,10 +219,11 @@ async function postMessage(cfg: PostMessageConfig): Promise<SlackMessageNodeOutp
   }
 
   if (response.status === 429) {
-    const retryAfter = response.headers.get('Retry-After');
+    const rawRetryAfter = response.headers.get('Retry-After');
+    const retryAfter = rawRetryAfter !== null ? safeBodySnippet(rawRetryAfter, token) : null;
     throw new CogniPipeError(
       retryAfter !== null
-        ? `Slack API rate limit exceeded (HTTP 429). Slack asks you to retry after ${truncateErrorBody(retryAfter)} seconds. Set "retry:" on this step to retry automatically.`
+        ? `Slack API rate limit exceeded (HTTP 429). Slack asks you to retry after ${retryAfter} seconds. Set "retry:" on this step to retry automatically.`
         : 'Slack API rate limit exceeded (HTTP 429). Retry later, or set "retry:" on this step to retry automatically.',
       {
         code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
@@ -270,10 +271,12 @@ async function postMessage(cfg: PostMessageConfig): Promise<SlackMessageNodeOutp
   // Slack reports most failures as HTTP 200 with { ok: false, error: "..." },
   // so checking response.ok alone is not enough.
   if (result.ok !== true) {
-    const slackError = truncateErrorBody(
+    const slackError = safeBodySnippet(
       typeof result.error === 'string' ? result.error : 'unknown_error',
+      token,
     );
-    const needed = typeof result.needed === 'string' ? truncateErrorBody(result.needed) : undefined;
+    const needed =
+      typeof result.needed === 'string' ? safeBodySnippet(result.needed, token) : undefined;
     const hint = getSlackErrorHint(slackError, cfg.tokenEnv, needed);
 
     throw new CogniPipeError(

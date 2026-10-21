@@ -657,6 +657,8 @@ describe('SlackMessageNode', () => {
       const scenarios: Array<() => void> = [
         () => mockFetchOnce({ ok: false, error: 'invalid_auth' }),
         () => mockFetchOnce({ ok: false, error: 'missing_scope', needed: 'chat:write' }),
+        () => mockFetchOnce({ ok: false, error: TOKEN, needed: TOKEN }),
+        () => mockFetchOnce({ ok: false }, { status: 429, headers: { 'Retry-After': TOKEN } }),
         () => mockFetchOnce({ ok: false }, { status: 429, headers: { 'Retry-After': '5' } }),
         () => mockFetchOnce('boom', { status: 500 }),
         () => mockFetchOnce('not json'),
@@ -680,6 +682,21 @@ describe('SlackMessageNode', () => {
         expect(error.message).not.toContain(TOKEN);
         expect(JSON.stringify(error.context ?? {})).not.toContain(TOKEN);
         expect(String(error.cause ?? '')).not.toContain(TOKEN);
+      }
+    });
+
+    it('redacts the token if Slack error / needed fields echo it back', async () => {
+      expect.assertions(4);
+      mockFetchOnce({ ok: false, error: `gateway saw ${TOKEN}`, needed: `scope ${TOKEN}` });
+
+      try {
+        await node.execute(baseConfig, mockCtx);
+      } catch (err) {
+        const error = err as CogniPipeError;
+        expect(error.message).not.toContain(TOKEN);
+        expect(error.message).toContain('[REDACTED]');
+        expect(JSON.stringify(error.context ?? {})).not.toContain(TOKEN);
+        expect(JSON.stringify(error.toJSON())).not.toContain(TOKEN);
       }
     });
   });

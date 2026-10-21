@@ -109,8 +109,8 @@ separate variants without changing this one.
 
 ## Errors
 
-All failures are `CogniPipeError`s. Error messages never contain the bot token, and any response body
-echoed into a message is truncated to 500 characters.
+All failures are `CogniPipeError`s. Error messages never contain the bot token, and any response content
+echoed into a message is redacted and truncated to 500 characters.
 
 | Code                    | When                                                                                                                                                                                                                                                           |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
