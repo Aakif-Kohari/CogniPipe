@@ -571,7 +571,7 @@ describe('SlackMessageNode', () => {
 
     it('treats a DOMException AbortError as a timeout even if signal.aborted is false', async () => {
       // Creates an AbortError without advancing timers, so signal.aborted remains false.
-      // This forces evaluation of the right side of the || in toRequestError (Line 156).
+      // This forces evaluation of the `||` in `toRequestError`.
       const abortError = new DOMException('The operation was aborted.', 'AbortError');
       global.fetch = jest.fn().mockRejectedValue(abortError);
 
@@ -583,7 +583,7 @@ describe('SlackMessageNode', () => {
 
     it('handles non-Error thrown by JSON.parse', async () => {
       // Mocking JSON.parse to throw a string instead of a SyntaxError
-      // covers the `undefined` branch of `err instanceof Error` in the catch block (Line 253).
+      // covers the `err instanceof Error` branch in the JSON-parse catch.
       const originalParse = JSON.parse;
       global.JSON.parse = (() => {
         throw 'non-error string';

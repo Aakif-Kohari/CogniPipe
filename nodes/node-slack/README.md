@@ -136,3 +136,7 @@ the common ones:
 
 HTTP 429 is surfaced immediately, with Slack's `Retry-After` value in the message. The node does not
 retry on its own in v1 — set `retry:` on the step (see the usage example above) to retry automatically.
+
+> **Retries can duplicate messages.** `retry:` re-runs the whole call after any failure, including a
+> timeout or 5xx where Slack may already have posted the message. It is safe for HTTP 429 (nothing was
+> posted); for other failures a retry can post the message twice.
