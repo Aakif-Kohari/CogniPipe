@@ -32,7 +32,8 @@ Each step is written against its node's current config: `fetch-story` uses
 `url`, `method` and `timeout`; `write-blurb` uses `model`, `apiKeyEnv`,
 `maxTokens` and `prompt` and exposes the model's reply as `output.content`;
 `post-to-slack` uses `tokenEnv`, `channel` and `text`. Once the OpenAI and Slack
-packages are published, this workflow is intended to run without changes.
+packages are published and installed next to the CLI, this workflow is
+intended to run without changes.
 
 ## Required environment variables
 
@@ -47,15 +48,18 @@ put a secret value in `workflow.yaml`.
 
 ## How to validate it today
 
-> ⚠️ **This workflow cannot be executed end-to-end yet — `cognipipe run` will
-> not get past its first step.** None of the three node packages is resolvable
-> from the CLI's runtime context: `@cognipipe/node-openai` and
-> `@cognipipe/node-slack` are not yet published to npm, and
-> `@cognipipe/node-http`, although published, is not a dependency of the
-> `cognipipe` CLI package. Running `cognipipe run` on this file today stops with
-> `NODE_NOT_REGISTERED` on the `fetch-story` step. This example exists to pin
-> down the intended `workflow.yaml` syntax and give node implementers a concrete
-> reference scenario.
+> ⚠️ **This workflow cannot be executed end-to-end yet.** `cognipipe run` checks
+> that every step's `uses` package is registered **before it runs any step**,
+> and none of the three node packages is resolvable from the CLI's runtime
+> context: `@cognipipe/node-openai` and `@cognipipe/node-slack` are not yet
+> published to npm, and `@cognipipe/node-http`, although published, is not a
+> dependency of the `cognipipe` CLI package. Running `cognipipe run` on this
+> file from a repo checkout therefore stops with `NODE_NOT_REGISTERED` on the
+> `fetch-story` step, and nothing is fetched, generated or posted. Even with
+> `@cognipipe/node-http` installed next to the CLI, the run is rejected the same
+> way on `write-blurb`, because `@cognipipe/node-openai` is not published. This
+> example exists to pin down the intended `workflow.yaml` syntax and give node
+> implementers a concrete reference scenario.
 
 The `cognipipe test <workflow-file>` command validates a workflow and previews
 its execution order **without executing any nodes**. From the repo root:
@@ -123,6 +127,10 @@ example.
 resolved against the execution context when the step starts. Strings, numbers
 and booleans are converted with `String()`; an object or array is embedded as
 raw JSON text. That is rarely what you want inside a prompt or a Slack message:
+
+> _(Note: `node-http` automatically parses the response body as a JSON object
+> when the server returns a `Content-Type` of `application/json`, which is
+> why paths like `output.body.title` work.)_
 
 ```yaml
 # Avoid: pastes the entire Hacker News JSON document, including the long
