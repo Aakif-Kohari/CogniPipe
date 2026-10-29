@@ -1,7 +1,8 @@
 # @cognipipe/node-slack
 
 Slack integration node for CogniPipe workflows. Posts plain-text and
-[Block Kit](https://api.slack.com/block-kit) messages to a Slack channel through the
+[Block Kit](https://api.slack.com/block-kit) messages to a Slack channel — or as a reply inside an
+existing thread — through the
 [`chat.postMessage`](https://api.slack.com/methods/chat.postMessage) Web API method, using Node's
 built-in `fetch` (no `@slack/web-api` dependency).
 
@@ -77,25 +78,56 @@ channel: '{{ steps.deliver.output.channel }}'
 ts: '{{ steps.deliver.output.ts }}'
 ```
 
+Reply inside a thread — post a message, then answer under it using the first message's `ts`
+(`action: postToThread`):
+
+```yaml
+steps:
+  - name: announce
+    uses: '@cognipipe/node-slack'
+    config:
+      channel: '#ops'
+      text: 'Deploy started'
+
+  - name: follow-up
+    uses: '@cognipipe/node-slack'
+    dependsOn: ['announce']
+    config:
+      action: postToThread
+      channel: '{{ steps.announce.output.channel }}'
+      threadTs: '{{ steps.announce.output.ts }}'
+      text: 'Deploy finished ✅'
+      # replyBroadcast: true  # also show this reply in the channel
+```
+
 ### Config
 
-The config is an `action`-keyed discriminated union. `postMessage` is the only action today, and it is
-what you get when `action` is omitted. Other actions (for example `postToThread`) will be added as
-separate variants without changing this one.
+The config is an `action`-keyed discriminated union with two actions: `postMessage` (what you get when
+`action` is omitted) and `postToThread`. Both share the same fields; `postToThread` adds `threadTs`
+and `replyBroadcast`.
 
-| Field         | Type            | Required | Default                 | Notes                                                                                                                                                                        |
-| ------------- | --------------- | -------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `action`      | `'postMessage'` | —        | `'postMessage'`         | Which operation to run. An unknown value fails with `NODE_CONFIG_INVALID`.                                                                                                   |
-| `channel`     | `string`        | ✅       | —                       | `"#general"` or a channel ID such as `"C0123ABCD"`. Channel IDs are more robust — they survive renames. Must be non-empty.                                                   |
-| `text`        | `string`        | ⚠️       | —                       | Plain-text / mrkdwn message. When `blocks` is also set, this is the notification fallback. Must be non-empty if provided.                                                    |
-| `blocks`      | `object[]`      | ⚠️       | —                       | Block Kit blocks, forwarded to Slack **unchanged**. 1–50 items; each must have a string `type`. The rest of each block is not validated here — Slack reports invalid blocks. |
-| `tokenEnv`    | `string`        | —        | `'SLACK_BOT_TOKEN'`     | **Name** of the env var holding the bot token. The node reads `process.env[tokenEnv]` — never put a raw token in config.                                                     |
-| `unfurlLinks` | `boolean`       | —        | Slack's default         | Sent as `unfurl_links`. Omitted from the request when not set.                                                                                                               |
-| `baseUrl`     | `string` (URL)  | —        | `https://slack.com/api` | Override for proxies / test servers. **Must be `https://`** so the token is never sent in cleartext.                                                                         |
+| Field            | Type                              | Required              | Default                   | Notes                                                                                                                                                                                                |
+| ---------------- | --------------------------------- | --------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `action`         | `'postMessage' \| 'postToThread'` | —                     | `'postMessage'`           | Which operation to run. An unknown value fails with `NODE_CONFIG_INVALID`.                                                                                                                           |
+| `channel`        | `string`                          | ✅                    | —                         | `"#general"` or a channel ID such as `"C0123ABCD"`. Channel IDs are more robust — they survive renames. Must be non-empty.                                                                           |
+| `text`           | `string`                          | ⚠️                    | —                         | Plain-text / mrkdwn message. When `blocks` is also set, this is the notification fallback. Must be non-empty if provided.                                                                            |
+| `blocks`         | `object[]`                        | ⚠️                    | —                         | Block Kit blocks, forwarded to Slack **unchanged**. 1–50 items; each must have a string `type`. The rest of each block is not validated here — Slack reports invalid blocks.                         |
+| `tokenEnv`       | `string`                          | —                     | `'SLACK_BOT_TOKEN'`       | **Name** of the env var holding the bot token. The node reads `process.env[tokenEnv]` — never put a raw token in config.                                                                             |
+| `unfurlLinks`    | `boolean`                         | —                     | Slack's default           | Sent as `unfurl_links`. Omitted from the request when not set.                                                                                                                                       |
+| `baseUrl`        | `string` (URL)                    | —                     | `https://slack.com/api`   | Override for proxies / test servers. **Must be `https://`** so the token is never sent in cleartext.                                                                                                 |
+| `threadTs`       | `string`                          | ✅ for `postToThread` | —                         | `postToThread` only. The parent message's `ts`, e.g. `"1712345678.000100"` — digits, a dot, digits. Sent as `thread_ts`. Not trimmed: surrounding whitespace is rejected with `NODE_CONFIG_INVALID`. |
+| `replyBroadcast` | `boolean`                         | —                     | Slack's default (`false`) | `postToThread` only. Sent as `reply_broadcast`: also show the reply in the channel, not just in the thread. Omitted from the request when not set.                                                   |
 
-⚠️ At least one of `text` or `blocks` is required.
+⚠️ At least one of `text` or `blocks` is required, for both actions.
 
-### Output (`SlackMessageNodeOutput`)
+> **`threadTs` is only read by `postToThread`.** If `action` is omitted the config is treated as
+> `postMessage`, a `threadTs` in it is ignored, and a new top-level message is posted. Always set
+> `action: postToThread` when replying. Use the **parent** message's `ts`, not the `ts` of one of its
+> replies (Slack's guidance for `thread_ts`).
+
+### Output
+
+`postMessage` returns a `SlackMessageNodeOutput`:
 
 ```typescript
 {
@@ -107,15 +139,26 @@ separate variants without changing this one.
 
 `ts` identifies the message; it is what a threaded reply uses as `threadTs`.
 
+`postToThread` returns a `SlackThreadReplyOutput`:
+
+```typescript
+{
+  ok: true;
+  channel: string; // channel ID Slack resolved, e.g. "C0123ABCD"
+  ts: string; // the reply's own timestamp, e.g. "1712345679.000200"
+  threadTs: string; // echoes the parent's ts — the threadTs you configured
+}
+```
+
 ## Errors
 
 All failures are `CogniPipeError`s. Error messages never contain the bot token, and any response content
 echoed into a message is redacted and truncated to 500 characters.
 
-| Code                    | When                                                                                                                                                                                                                                                           |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NODE_CONFIG_INVALID`   | Missing/empty `tokenEnv` variable (the message names the variable, not a value); neither `text` nor `blocks`; empty `channel`; more than 50 blocks or a block without a string `type`; unknown `action`; `baseUrl` that is not `https://`. No request is sent. |
-| `STEP_EXECUTION_FAILED` | Network failure or timeout (30 s) — the original error is kept as `.cause`; HTTP 429 (message includes the `Retry-After` value); any other non-2xx status; a body that is not JSON; Slack `ok: false`; a success response missing `channel` or `ts`.           |
+| Code                    | When                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_CONFIG_INVALID`   | Missing/empty `tokenEnv` variable (the message names the variable, not a value); neither `text` nor `blocks`; empty `channel`; more than 50 blocks or a block without a string `type`; unknown `action`; `baseUrl` that is not `https://`; for `postToThread`, a missing or malformed `threadTs` (not `digits.digits`, including surrounding whitespace) or a non-boolean `replyBroadcast`. No request is sent. |
+| `STEP_EXECUTION_FAILED` | Network failure or timeout (30 s) — the original error is kept as `.cause`; HTTP 429 (message includes the `Retry-After` value); any other non-2xx status; a body that is not JSON; Slack `ok: false`; a success response missing `channel` or `ts`.                                                                                                                                                            |
 
 ### Slack API errors
 
@@ -131,6 +174,10 @@ the common ones:
 | `missing_scope`                               | Add the scope named in the message (at least `chat:write`), then reinstall the app. |
 | `is_archived`                                 | The channel is archived.                                                            |
 | `invalid_blocks`                              | Validate `blocks` in Slack's Block Kit Builder.                                     |
+
+`postToThread` goes through the same code path, so every error above applies to it too. Thread-specific
+Slack errors (for example `cannot_reply_to_message` or `restricted_action_thread_locked`) are reported
+with Slack's error code in the message, without a built-in hint.
 
 ### Rate limits
 
