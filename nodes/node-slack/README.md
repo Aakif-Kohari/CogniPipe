@@ -125,6 +125,10 @@ and `replyBroadcast`.
 > `action: postToThread` when replying. Use the **parent** message's `ts`, not the `ts` of one of its
 > replies (Slack's guidance for `thread_ts`).
 
+> **YAML Quoting:** When you hard-code a `ts` in YAML, quote it (`threadTs: '1712345678.000100'`).
+> Unquoted, YAML reads it as a number and the config is rejected. Values interpolated from
+> a previous step are already strings.
+
 ### Output
 
 `postMessage` returns a `SlackMessageNodeOutput`:
