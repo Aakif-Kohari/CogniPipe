@@ -2,7 +2,8 @@
  * @module SlackMessageNode
  *
  * Slack node for CogniPipe workflows. Posts plain-text and Block Kit messages
- * to a channel through Slack's `chat.postMessage` Web API method.
+ * to a channel — or as a reply inside an existing thread — through Slack's
+ * `chat.postMessage` Web API method.
  * Uses Node.js 22's built-in fetch — no `@slack/web-api` dependency.
  */
 
@@ -20,8 +21,22 @@ export interface SlackMessageNodeOutput extends NodeOutput {
   ok: true;
   /** The channel ID Slack resolved, e.g. `"C0123ABCD"` (even when the config used `"#general"`). */
   channel: string;
-  /** Message timestamp, e.g. `"1712345678.000100"`. Use as `threadTs` to reply in a thread (Issue #162). */
+  /** Message timestamp, e.g. `"1712345678.000100"`. Use as `threadTs` to reply in a thread. */
   ts: string;
+}
+
+/**
+ * Output of a successful `postToThread` call.
+ */
+export interface SlackThreadReplyOutput extends NodeOutput {
+  /** Always `true` — a Slack `ok: false` response throws instead of returning. */
+  ok: true;
+  /** The channel ID Slack resolved, e.g. `"C0123ABCD"` (even when the config used `"#general"`). */
+  channel: string;
+  /** The reply's own timestamp, e.g. `"1712345678.000200"`. */
+  ts: string;
+  /** Echoes the parent message's `ts` — the `threadTs` the reply was posted under. */
+  threadTs: string;
 }
 
 /**
@@ -58,12 +73,50 @@ const PostMessageSchema = z
 type PostMessageConfig = z.output<typeof PostMessageSchema>;
 
 /**
+ * Config for the `postToThread` action: the same shared fields as `postMessage`
+ * plus the parent message's timestamp. Declared as its own schema so the
+ * `postMessage` variant above stays untouched.
+ */
+const PostToThreadSchema = z
+  .object({
+    action: z.literal('postToThread'),
+    tokenEnv: z.string().min(1).default('SLACK_BOT_TOKEN'),
+    /** `"#general"` or a channel ID such as `"C0123ABCD"`. Must be the parent message's channel. */
+    channel: z.string().min(1),
+    text: z.string().min(1).optional(),
+    /** Slack allows at most 50 blocks per message. */
+    blocks: z.array(BlockSchema).min(1).max(50).optional(),
+    unfurlLinks: z.boolean().optional(),
+    /** Slack Web API base URL. Must be https. Defaults to `https://slack.com/api`. */
+    baseUrl: z.string().url().optional(),
+    /**
+     * The parent message's `ts`, e.g. `"1712345678.000100"`. Matched strictly (no
+     * trimming) so a stray space from a template fails here instead of in Slack.
+     */
+    threadTs: z
+      .string()
+      .regex(
+        /^\d+\.\d+$/,
+        'threadTs must be the parent message\'s ts: digits, a dot, digits (for example "1712345678.000100") with no surrounding whitespace',
+      ),
+    /** Sent as `reply_broadcast`: also show the reply in the channel. */
+    replyBroadcast: z.boolean().optional(),
+  })
+  .refine(config => config.text !== undefined || config.blocks !== undefined, {
+    message: 'Provide at least one of "text" or "blocks"',
+    path: ['text'],
+  });
+
+/** Validated `postToThread` config, with defaults applied. */
+type PostToThreadConfig = z.output<typeof PostToThreadSchema>;
+
+/**
  * Config accepted by {@link SlackMessageNode}. `action` may be omitted, in which
  * case it means `postMessage`.
  */
-export type SlackMessageConfig = Omit<z.input<typeof PostMessageSchema>, 'action'> & {
-  action?: 'postMessage';
-};
+export type SlackMessageConfig =
+  | (Omit<z.input<typeof PostMessageSchema>, 'action'> & { action?: 'postMessage' })
+  | z.input<typeof PostToThreadSchema>;
 
 /**
  * Treats a missing `action` as `postMessage` before the union is evaluated.
@@ -80,12 +133,15 @@ function withDefaultAction(raw: unknown): unknown {
 }
 
 /**
- * Config schema: an `action`-keyed discriminated union. Issue #162 adds
- * `postToThread` by appending one more schema to this array — `PostMessageSchema`
- * and the `switch` in `execute()` only gain a sibling, nothing existing changes.
+ * Config schema: an `action`-keyed discriminated union. A new action is one more
+ * schema in this array plus one more `case` in `execute()` — existing variants
+ * are never edited.
  */
 const SlackConfig = defineConfig(
-  z.preprocess(withDefaultAction, z.discriminatedUnion('action', [PostMessageSchema])),
+  z.preprocess(
+    withDefaultAction,
+    z.discriminatedUnion('action', [PostMessageSchema, PostToThreadSchema]),
+  ),
 );
 
 const DEFAULT_BASE_URL = 'https://slack.com/api';
@@ -167,8 +223,30 @@ function toRequestError(err: unknown, signal: AbortSignal): CogniPipeError {
   );
 }
 
-/** Calls `chat.postMessage` and validates Slack's response. */
-async function postMessage(cfg: PostMessageConfig): Promise<SlackMessageNodeOutput> {
+/** The fields every action sends to `chat.postMessage`, whatever else it adds. */
+type SharedSlackConfig = Omit<PostMessageConfig, 'action'>;
+
+/** Request fields only some actions add to the shared body. */
+interface ExtraRequestFields {
+  thread_ts?: string;
+  reply_broadcast?: boolean;
+}
+
+/** The part of a successful Slack response every action returns. */
+interface SlackPostResult {
+  channel: string;
+  ts: string;
+}
+
+/**
+ * Calls `chat.postMessage` and validates Slack's response. Every action goes
+ * through here so error handling (ok: false hints, 429, timeout, 500-character
+ * body cap, token redaction) can never drift between them.
+ */
+async function sendChatPostMessage(
+  cfg: SharedSlackConfig,
+  extra: ExtraRequestFields,
+): Promise<SlackPostResult> {
   const token = process.env[cfg.tokenEnv];
   if (!token) {
     throw new CogniPipeError(
@@ -206,6 +284,7 @@ async function postMessage(cfg: PostMessageConfig): Promise<SlackMessageNodeOutp
           text: cfg.text,
           blocks: cfg.blocks,
           unfurl_links: cfg.unfurlLinks,
+          ...extra,
         }),
         signal: controller.signal,
       });
@@ -299,14 +378,30 @@ async function postMessage(cfg: PostMessageConfig): Promise<SlackMessageNodeOutp
     );
   }
 
+  return { channel, ts };
+}
+
+/** Posts a new top-level message. */
+async function postMessage(cfg: PostMessageConfig): Promise<SlackMessageNodeOutput> {
+  const { channel, ts } = await sendChatPostMessage(cfg, {});
   return { ok: true, channel, ts };
+}
+
+/** Posts a reply under the message whose `ts` is `cfg.threadTs`. */
+async function postToThread(cfg: PostToThreadConfig): Promise<SlackThreadReplyOutput> {
+  const { channel, ts } = await sendChatPostMessage(cfg, {
+    thread_ts: cfg.threadTs,
+    reply_broadcast: cfg.replyBroadcast,
+  });
+  return { ok: true, channel, ts, threadTs: cfg.threadTs };
 }
 
 /**
  * Slack `chat.postMessage` node.
  * Posts a plain-text message, a Block Kit message, or both (then `text` is the
- * notification fallback). Reads the bot token from `process.env[config.tokenEnv]`
- * — never accepts the token directly in config.
+ * notification fallback). With `action: postToThread` the message is posted as a
+ * reply under an earlier message instead. Reads the bot token from
+ * `process.env[config.tokenEnv]` — never accepts the token directly in config.
  *
  * @example
  * ```yaml
@@ -317,15 +412,33 @@ async function postMessage(cfg: PostMessageConfig): Promise<SlackMessageNodeOutp
  *       channel: '#engineering'
  *       text: 'Deployment complete!'
  * ```
+ *
+ * @example
+ * ```yaml
+ * steps:
+ *   - name: follow-up
+ *     uses: '@cognipipe/node-slack'
+ *     dependsOn: ['notify']
+ *     config:
+ *       action: postToThread
+ *       channel: '{{ steps.notify.output.channel }}'
+ *       threadTs: '{{ steps.notify.output.ts }}'
+ *       text: 'Rollout finished ✅'
+ * ```
  */
 @CogniNode({ type: '@cognipipe/node-slack', version: '1.0.0' })
 export class SlackMessageNode extends BaseNode {
-  async execute(config: NodeConfig, _ctx: IExecutionContext): Promise<SlackMessageNodeOutput> {
+  async execute(
+    config: NodeConfig,
+    _ctx: IExecutionContext,
+  ): Promise<SlackMessageNodeOutput | SlackThreadReplyOutput> {
     const cfg = SlackConfig.parse(config);
 
     switch (cfg.action) {
       case 'postMessage':
         return postMessage(cfg);
+      case 'postToThread':
+        return postToThread(cfg);
     }
   }
 }

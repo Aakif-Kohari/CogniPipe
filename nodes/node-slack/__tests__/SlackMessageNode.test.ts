@@ -700,4 +700,391 @@ describe('SlackMessageNode', () => {
       }
     });
   });
+
+  describe('postToThread action', () => {
+    const THREAD_TS = '1712345678.000100';
+    const threadConfig = {
+      action: 'postToThread',
+      channel: '#general',
+      text: 'Reply',
+      threadTs: THREAD_TS,
+    } as NodeConfig;
+    // A reply has its own ts, different from the parent's.
+    const replySuccessBody = { ok: true, channel: 'C0123ABCD', ts: '1712345679.000200' };
+
+    describe('successful replies', () => {
+      it('sends thread_ts and returns { ok: true, channel, ts, threadTs }', async () => {
+        mockFetchOnce(replySuccessBody);
+
+        const result = await node.execute(threadConfig, mockCtx);
+
+        expect(result).toEqual({
+          ok: true,
+          channel: 'C0123ABCD',
+          ts: '1712345679.000200',
+          threadTs: THREAD_TS,
+        });
+        expect(JSON.parse(sentRequest().body)).toEqual({
+          channel: '#general',
+          text: 'Reply',
+          thread_ts: THREAD_TS,
+        });
+      });
+
+      it('uses the same endpoint, method and auth header as postMessage', async () => {
+        mockFetchOnce(replySuccessBody);
+
+        await node.execute(threadConfig, mockCtx);
+
+        expect(global.fetch).toHaveBeenCalledTimes(1);
+        expect(global.fetch).toHaveBeenCalledWith(
+          DEFAULT_URL,
+          expect.objectContaining({
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${TOKEN}`,
+              'Content-Type': 'application/json; charset=utf-8',
+            },
+          }),
+        );
+      });
+
+      it.each([true, false])(
+        'forwards replyBroadcast: %s as reply_broadcast',
+        async replyBroadcast => {
+          mockFetchOnce(replySuccessBody);
+
+          await node.execute({ ...threadConfig, replyBroadcast } as NodeConfig, mockCtx);
+
+          expect(JSON.parse(sentRequest().body)).toMatchObject({ reply_broadcast: replyBroadcast });
+        },
+      );
+
+      it('omits reply_broadcast from the request body when replyBroadcast is not set', async () => {
+        mockFetchOnce(replySuccessBody);
+
+        await node.execute(threadConfig, mockCtx);
+
+        expect(sentRequest().body).not.toContain('reply_broadcast');
+      });
+
+      it('posts blocks only (no text) into the thread', async () => {
+        mockFetchOnce(replySuccessBody);
+        const blocks = [{ type: 'section', text: { type: 'mrkdwn', text: '*done*' } }];
+
+        await node.execute(
+          {
+            action: 'postToThread',
+            channel: '#general',
+            blocks,
+            threadTs: THREAD_TS,
+          } as NodeConfig,
+          mockCtx,
+        );
+
+        const body = JSON.parse(sentRequest().body) as Record<string, unknown>;
+        expect(body).toEqual({ channel: '#general', blocks, thread_ts: THREAD_TS });
+        expect(body).not.toHaveProperty('text');
+      });
+
+      it('posts text and blocks together into the thread (text is the notification fallback)', async () => {
+        mockFetchOnce(replySuccessBody);
+        const blocks = [{ type: 'section', text: { type: 'mrkdwn', text: 'Details' } }];
+
+        await node.execute({ ...threadConfig, text: 'fallback', blocks } as NodeConfig, mockCtx);
+
+        expect(JSON.parse(sentRequest().body)).toEqual({
+          channel: '#general',
+          text: 'fallback',
+          blocks,
+          thread_ts: THREAD_TS,
+        });
+      });
+
+      it('honors unfurlLinks, baseUrl and tokenEnv like postMessage does', async () => {
+        process.env.MY_SLACK_TOKEN = 'xoxb-custom-token';
+        mockFetchOnce(replySuccessBody);
+
+        await node.execute(
+          {
+            ...threadConfig,
+            unfurlLinks: false,
+            baseUrl: 'https://gateway.example.com/api/',
+            tokenEnv: 'MY_SLACK_TOKEN',
+          } as NodeConfig,
+          mockCtx,
+        );
+
+        const request = sentRequest();
+        expect(request.url).toBe('https://gateway.example.com/api/chat.postMessage');
+        expect(request.headers.Authorization).toBe('Bearer xoxb-custom-token');
+        expect(JSON.parse(request.body)).toMatchObject({ unfurl_links: false });
+      });
+    });
+
+    describe('postMessage is unaffected (regression guards)', () => {
+      it('does not send thread_ts or reply_broadcast when action is omitted', async () => {
+        mockFetchOnce(slackSuccessBody);
+
+        await node.execute(baseConfig, mockCtx);
+
+        const raw = sentRequest().body;
+        expect(raw).not.toContain('thread_ts');
+        expect(raw).not.toContain('reply_broadcast');
+      });
+
+      it('does not send thread_ts or reply_broadcast for an explicit postMessage', async () => {
+        mockFetchOnce(slackSuccessBody);
+
+        await node.execute({ ...baseConfig, action: 'postMessage' } as NodeConfig, mockCtx);
+
+        const raw = sentRequest().body;
+        expect(raw).not.toContain('thread_ts');
+        expect(raw).not.toContain('reply_broadcast');
+      });
+
+      it('returns no threadTs in the postMessage output', async () => {
+        mockFetchOnce(slackSuccessBody);
+
+        const result = await node.execute(baseConfig, mockCtx);
+
+        expect(result).not.toHaveProperty('threadTs');
+      });
+    });
+
+    describe('config validation (NODE_CONFIG_INVALID, fetch never called)', () => {
+      it('throws mentioning "threadTs" when it is missing', async () => {
+        expect.assertions(4);
+
+        try {
+          await node.execute(
+            { action: 'postToThread', channel: '#general', text: 'Reply' } as NodeConfig,
+            mockCtx,
+          );
+        } catch (err) {
+          expect(isCogniPipeError(err)).toBe(true);
+          expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
+          expect((err as CogniPipeError).message).toContain('threadTs');
+        }
+        expect(global.fetch).not.toHaveBeenCalled();
+      });
+
+      it.each([
+        ['not a timestamp', 'not-a-ts'],
+        ['has no dot', '1712345678'],
+        ['has nothing after the dot', '1712345678.'],
+        ['has nothing before the dot', '.000100'],
+        ['has two dots', '1712345678.000100.1'],
+        ['is empty', ''],
+        ['has a leading space', ' 1712345678.000100'],
+        ['has a trailing space', '1712345678.000100 '],
+        ['has surrounding whitespace', ' 1712345678.000100 '],
+        ['has a trailing newline', '1712345678.000100\n'],
+        ['is a number, not a string', 1712345678.0001],
+        ['is null', null],
+      ])('throws mentioning "threadTs" when it %s', async (_name, threadTs) => {
+        expect.assertions(3);
+
+        try {
+          await node.execute({ ...threadConfig, threadTs } as NodeConfig, mockCtx);
+        } catch (err) {
+          expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
+          expect((err as CogniPipeError).message).toContain('threadTs');
+        }
+        expect(global.fetch).not.toHaveBeenCalled();
+      });
+
+      it('rejects a non-boolean replyBroadcast', async () => {
+        expect.assertions(3);
+
+        try {
+          await node.execute({ ...threadConfig, replyBroadcast: 'yes' } as NodeConfig, mockCtx);
+        } catch (err) {
+          expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
+          expect((err as CogniPipeError).message).toContain('replyBroadcast');
+        }
+        expect(global.fetch).not.toHaveBeenCalled();
+      });
+
+      it('throws when neither text nor blocks is provided', async () => {
+        expect.assertions(3);
+
+        try {
+          await node.execute(
+            { action: 'postToThread', channel: '#general', threadTs: THREAD_TS } as NodeConfig,
+            mockCtx,
+          );
+        } catch (err) {
+          expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
+          expect((err as CogniPipeError).message).toContain('text');
+        }
+        expect(global.fetch).not.toHaveBeenCalled();
+      });
+
+      // postToThread declares its own copy of the shared fields, so each rule is
+      // checked here to catch the two variants drifting apart.
+      it.each([
+        ['empty channel', { ...threadConfig, channel: '' }],
+        ['missing channel', { action: 'postToThread', text: 'hi', threadTs: THREAD_TS }],
+        ['empty text', { ...threadConfig, text: '' }],
+        ['empty blocks array', { ...threadConfig, text: undefined, blocks: [] }],
+        [
+          'blocks with 51 items',
+          {
+            ...threadConfig,
+            blocks: Array.from({ length: 51 }, () => ({ type: 'divider' })),
+          },
+        ],
+        ['a block without a type', { ...threadConfig, blocks: [{ text: 'no type' }] }],
+        ['an empty tokenEnv', { ...threadConfig, tokenEnv: '' }],
+        ['a non-boolean unfurlLinks', { ...threadConfig, unfurlLinks: 'yes' }],
+        ['a baseUrl that is not a URL', { ...threadConfig, baseUrl: 'not a url' }],
+      ])('throws NODE_CONFIG_INVALID for %s', async (_name, config) => {
+        await expect(node.execute(config as NodeConfig, mockCtx)).rejects.toMatchObject({
+          code: COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID,
+        });
+        expect(global.fetch).not.toHaveBeenCalled();
+      });
+
+      it("accepts exactly 50 blocks (Slack's limit)", async () => {
+        mockFetchOnce(replySuccessBody);
+        const blocks = Array.from({ length: 50 }, () => ({ type: 'divider' }));
+
+        await expect(
+          node.execute({ ...threadConfig, blocks } as NodeConfig, mockCtx),
+        ).resolves.toBeDefined();
+      });
+
+      it('throws NODE_CONFIG_INVALID for a non-https baseUrl', async () => {
+        await expect(
+          node.execute(
+            { ...threadConfig, baseUrl: 'http://insecure.local/api' } as NodeConfig,
+            mockCtx,
+          ),
+        ).rejects.toMatchObject({ code: COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID });
+        expect(global.fetch).not.toHaveBeenCalled();
+      });
+
+      it('names the missing token env var without leaking any value', async () => {
+        expect.assertions(4);
+        delete process.env.SLACK_BOT_TOKEN;
+
+        try {
+          await node.execute(threadConfig, mockCtx);
+        } catch (err) {
+          expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
+          expect((err as CogniPipeError).message).toContain('SLACK_BOT_TOKEN');
+          expect((err as CogniPipeError).message).not.toContain(TOKEN);
+        }
+        expect(global.fetch).not.toHaveBeenCalled();
+      });
+    });
+
+    // The reply path shares the sender with postMessage; these prove the shared
+    // error handling really is shared (hints, 429, truncation, redaction, ...).
+    describe('Slack and transport errors (STEP_EXECUTION_FAILED)', () => {
+      it('turns { ok: false, error: "thread_not_found" } into STEP_EXECUTION_FAILED with the Slack error', async () => {
+        expect.assertions(4);
+        mockFetchOnce({ ok: false, error: 'thread_not_found' });
+
+        try {
+          await node.execute(threadConfig, mockCtx);
+        } catch (err) {
+          expect(isCogniPipeError(err)).toBe(true);
+          expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED);
+          expect((err as CogniPipeError).message).toContain('thread_not_found');
+        }
+        expect(global.fetch).toHaveBeenCalledTimes(1);
+      });
+
+      it('turns any other { ok: false } reply into STEP_EXECUTION_FAILED, keeping the hints', async () => {
+        expect.assertions(3);
+        mockFetchOnce({ ok: false, error: 'channel_not_found' });
+
+        try {
+          await node.execute(threadConfig, mockCtx);
+        } catch (err) {
+          expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED);
+          expect((err as CogniPipeError).message).toContain('channel_not_found');
+          expect((err as CogniPipeError).message).toContain('Hint:');
+        }
+      });
+
+      it('falls back to "unknown_error" when ok is false and no error string is present', async () => {
+        expect.assertions(1);
+        mockFetchOnce({ ok: false });
+
+        try {
+          await node.execute(threadConfig, mockCtx);
+        } catch (err) {
+          expect((err as CogniPipeError).message).toContain('unknown_error');
+        }
+      });
+
+      it('surfaces HTTP 429 with the Retry-After value and does not retry', async () => {
+        expect.assertions(4);
+        mockFetchOnce(
+          { ok: false, error: 'ratelimited' },
+          { status: 429, headers: { 'Retry-After': '30' } },
+        );
+
+        try {
+          await node.execute(threadConfig, mockCtx);
+        } catch (err) {
+          expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED);
+          expect((err as CogniPipeError).message).toContain('429');
+          expect((err as CogniPipeError).message).toContain('30');
+        }
+        expect(global.fetch).toHaveBeenCalledTimes(1);
+      });
+
+      it('caps a 5 000-character error body at 500 characters', async () => {
+        expect.assertions(3);
+        mockFetchOnce('x'.repeat(5_000), { status: 500 });
+
+        try {
+          await node.execute(threadConfig, mockCtx);
+        } catch (err) {
+          const message = (err as CogniPipeError).message;
+          expect(message).toContain('truncated, 4500 more characters');
+          expect(message).toContain('x'.repeat(500));
+          expect(message).not.toContain('x'.repeat(501));
+        }
+      });
+
+      it('redacts the token if a response body echoes it back', async () => {
+        expect.assertions(2);
+        mockFetchOnce(`upstream said: Authorization: Bearer ${TOKEN}`, { status: 500 });
+
+        try {
+          await node.execute(threadConfig, mockCtx);
+        } catch (err) {
+          expect((err as CogniPipeError).message).not.toContain(TOKEN);
+          expect((err as CogniPipeError).message).toContain('[REDACTED]');
+        }
+      });
+
+      it('throws an "incomplete response" error when Slack omits ts', async () => {
+        mockFetchOnce({ ok: true, channel: 'C0123ABCD' });
+
+        await expect(node.execute(threadConfig, mockCtx)).rejects.toMatchObject({
+          code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+          message: expect.stringContaining('incomplete response'),
+        });
+      });
+
+      it('wraps a network failure and keeps the original error as .cause', async () => {
+        expect.assertions(2);
+        const networkError = new Error('ECONNREFUSED');
+        global.fetch = jest.fn().mockRejectedValue(networkError);
+
+        try {
+          await node.execute(threadConfig, mockCtx);
+        } catch (err) {
+          expect((err as CogniPipeError).code).toBe(COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED);
+          expect((err as CogniPipeError).cause).toBe(networkError);
+        }
+      });
+    });
+  });
 });

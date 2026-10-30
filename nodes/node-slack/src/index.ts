@@ -8,4 +8,8 @@
  */
 
 export { SlackMessageNode } from './SlackMessageNode.js';
-export type { SlackMessageConfig, SlackMessageNodeOutput } from './SlackMessageNode.js';
+export type {
+  SlackMessageConfig,
+  SlackMessageNodeOutput,
+  SlackThreadReplyOutput,
+} from './SlackMessageNode.js';
