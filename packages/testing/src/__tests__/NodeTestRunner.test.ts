@@ -510,26 +510,42 @@ describe('NodeTestRunner', () => {
       const first = runner.run({}, { env: { [ENV_VAR]: 'first' } });
       const second = runner.run({}, { env: { [ENV_VAR]: 'second' } });
 
-      await expect(second).rejects.toThrow(/cannot overlap/);
-      expect(process.env[ENV_VAR]).toBe('first');
+      // The overlap guard is static, so a run left in flight by a failed assertion
+      // would make every later override test fail with a misleading "cannot overlap".
+      // The finally therefore always releases the gate and settles the first run.
+      // Both are safe to repeat: releasing a released gate is a no-op, and awaiting
+      // an already-settled promise just reads its value.
+      try {
+        await expect(second).rejects.toThrow(/cannot overlap/);
+        expect(process.env[ENV_VAR]).toBe('first');
 
-      gate.release();
-      const firstResult = await first;
+        gate.release();
+        const firstResult = await first;
 
-      expectOk(firstResult);
-      expect(ENV_VAR in process.env).toBe(false);
+        expectOk(firstResult);
+        expect(ENV_VAR in process.env).toBe(false);
+      } finally {
+        gate.release();
+        await first;
+      }
     });
 
     it('rejects overlapping runs across runner instances and across env and fetch', async () => {
       const gate = createGate();
       const first = new NodeTestRunner(createGatedNode(gate.wait)).run({}, { fetch: fetchStub() });
 
-      await expect(
-        new NodeTestRunner(ExecuteOnlyNode).run({}, { env: { [ENV_VAR]: 'x' } }),
-      ).rejects.toThrow(/cannot overlap/);
+      // Same guarantee as above: never leave the gated run holding the static guard.
+      try {
+        await expect(
+          new NodeTestRunner(ExecuteOnlyNode).run({}, { env: { [ENV_VAR]: 'x' } }),
+        ).rejects.toThrow(/cannot overlap/);
 
-      gate.release();
-      expectOk(await first);
+        gate.release();
+        expectOk(await first);
+      } finally {
+        gate.release();
+        await first;
+      }
     });
 
     it('lets a run without overrides overlap with one that has them', async () => {
@@ -539,6 +555,7 @@ describe('NodeTestRunner', () => {
       const withOverrides = runner.run({}, { env: { [ENV_VAR]: 'x' } });
       const withoutOverrides = runner.run({});
 
+      // Released before any assertion, so a failure below cannot strand a run.
       gate.release();
 
       expectOk(await withOverrides);
@@ -554,16 +571,30 @@ describe('NodeTestRunner', () => {
           throw new Error('boom');
         }
       }
-      expectFailed(await new NodeTestRunner(ThrowsNode).run({}, { env: { [ENV_VAR]: 'a' } }));
-      expectOk(await new NodeTestRunner(ExecuteOnlyNode).run({}, { env: { [ENV_VAR]: 'b' } }));
 
-      const first = runner.run({}, { env: { [ENV_VAR]: 'c' } });
-      await expect(runner.run({}, { env: { [ENV_VAR]: 'd' } })).rejects.toThrow(/cannot overlap/);
-      gate.release();
-      expectOk(await first);
+      // Declared out here so the finally can settle the gated run even when an
+      // earlier assertion fails before it is ever started.
+      let gated: Promise<NodeTestRunResult> | undefined;
 
-      expectOk(await new NodeTestRunner(ExecuteOnlyNode).run({}, { env: { [ENV_VAR]: 'e' } }));
-      expect(ENV_VAR in process.env).toBe(false);
+      try {
+        expectFailed(await new NodeTestRunner(ThrowsNode).run({}, { env: { [ENV_VAR]: 'a' } }));
+        expectOk(await new NodeTestRunner(ExecuteOnlyNode).run({}, { env: { [ENV_VAR]: 'b' } }));
+
+        const first = runner.run({}, { env: { [ENV_VAR]: 'c' } });
+        gated = first;
+        await expect(runner.run({}, { env: { [ENV_VAR]: 'd' } })).rejects.toThrow(/cannot overlap/);
+
+        gate.release();
+        expectOk(await first);
+
+        expectOk(await new NodeTestRunner(ExecuteOnlyNode).run({}, { env: { [ENV_VAR]: 'e' } }));
+        expect(ENV_VAR in process.env).toBe(false);
+      } finally {
+        gate.release();
+        if (gated !== undefined) {
+          await gated;
+        }
+      }
     });
   });
 });
