@@ -78,7 +78,7 @@ describe('WeatherNode', () => {
 
 ### Lifecycle
 
-Identical to the executor: interpolate config, then `beforeExecute` (if defined), `execute`, and `afterExecute` (if defined, only after a successful `execute`). Every `run()` constructs a **fresh node instance** and a fresh `MockContext`.
+Same hook order as the executor: interpolate config, then `beforeExecute` (if defined), `execute`, and `afterExecute` (if defined, only after a successful `execute`). Every `run()` constructs a **fresh node instance** and a fresh `MockContext`. The runner performs a **single attempt** of one node: step-level options such as `retry`, `continueOnError` and `dependsOn` are not applied, because they belong to the engine, not the node.
 
 ### Options
 
@@ -104,6 +104,7 @@ A constructor that throws, or a `{{ }}` token that cannot be resolved, also come
 - `env` and `fetch` overrides are restored in a `finally`, so they never leak — even when the node throws. A variable that did not exist before is **deleted**, not set to the string `"undefined"`.
 - The node is constructed inside the override window, so constructors and field initializers that read `process.env` see the overrides.
 - Overrides mutate process-wide state, so two overlapping `run()` calls that use `env` or `fetch` are rejected: the second `run()` rejects with a plain `Error`. Jest runs the tests of one file sequentially, so `await` each `run()` and you will never hit this.
+- A `run()` **without** overrides is not blocked, so if it overlaps a run that has them it will observe that run's `env` and `fetch` — `await` each `run()` and this never happens.
 
 ### Asserting on `CogniPipeError`
 
