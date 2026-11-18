@@ -24,7 +24,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "commander": "^15.0.0",
+    "commander": "^15.1.0",
     "@cognipipe/core": "workspace:*",
     "@cognipipe/types": "workspace:*"
   },
