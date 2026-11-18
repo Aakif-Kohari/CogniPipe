@@ -200,6 +200,41 @@ describe('NodeTestRunner', () => {
       expectOk(result);
       expect(result.resolvedConfig).toEqual(config);
     });
+
+    it('passes non-plain values through by reference when interpolating', async () => {
+      const d = new Date('2026-01-01T00:00:00Z');
+      const m = new Map([['k', 'v']]);
+
+      const result = await new NodeTestRunner(EchoConfigNode).run(
+        { d, m, token: '{{ steps.auth.output.token }}' },
+        { context: SEED },
+      );
+
+      expectOk(result);
+      expect(result.resolvedConfig['d']).toBe(d);
+      expect(result.resolvedConfig['m']).toBe(m);
+      expect(result.resolvedConfig['token']).toBe('abc');
+      expect(result.output['d']).toBe(d);
+      expect(result.output['m']).toBe(m);
+    });
+
+    it('passes non-plain values through by reference when interpolate is false', async () => {
+      const d = new Date('2026-01-01T00:00:00Z');
+      const m = new Map([['k', 'v']]);
+      const config = { d, m, token: '{{ steps.auth.output.token }}' };
+
+      const result = await new NodeTestRunner(EchoConfigNode).run(config, {
+        context: SEED,
+        interpolate: false,
+      });
+
+      expectOk(result);
+      expect(result.resolvedConfig).toBe(config);
+      expect(result.resolvedConfig['d']).toBe(d);
+      expect(result.resolvedConfig['m']).toBe(m);
+      expect(result.output['d']).toBe(d);
+      expect(result.output['m']).toBe(m);
+    });
   });
 
   describe('context', () => {

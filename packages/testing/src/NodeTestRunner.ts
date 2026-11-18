@@ -56,6 +56,19 @@ const OVERLAP_ERROR_MESSAGE =
   'overrides from one of them.';
 
 /**
+ * True only for `{}` literals and `Object.create(null)` objects, the only
+ * objects the config walk recurses into. Realm-safe: class instances, Dates
+ * and Maps all fail it.
+ */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+  const proto = Object.getPrototypeOf(value);
+  return proto === null || Object.getPrototypeOf(proto) === null;
+}
+
+/**
  * Mirrors the executor's config walk: strings go through `ctx.interpolate()`,
  * arrays and plain objects are recursed into, every other leaf passes through.
  */
@@ -68,7 +81,7 @@ function interpolateValue(value: unknown, ctx: MockContext): unknown {
     return value.map(item => interpolateValue(item, ctx));
   }
 
-  if (value !== null && typeof value === 'object') {
+  if (isPlainObject(value)) {
     const result: Record<string, unknown> = {};
     for (const [key, nestedValue] of Object.entries(value)) {
       result[key] = interpolateValue(nestedValue, ctx);
@@ -76,7 +89,7 @@ function interpolateValue(value: unknown, ctx: MockContext): unknown {
     return result;
   }
 
-  // Numbers, booleans, null, undefined — pass through unchanged.
+  // Numbers, booleans, null, undefined, Dates, Maps and other non-plain objects: pass through unchanged.
   return value;
 }
 

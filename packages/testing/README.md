@@ -35,7 +35,7 @@ ctx.interpolate('Bearer {{ steps.auth.output.token }}'); // 'Bearer abc'
 ctx.set('extra', 1).get('extra'); // 1 (ctx itself is untouched)
 ```
 
-`interpolate()` supports dot-notation only (`{{ a.b.c }}`), not array brackets (`[0]`). An unresolvable token throws a plain `Error`.
+`interpolate()` supports dot-notation (`{{ a.b.c }}`) and array indices (`{{ a.list[0] }}`, `{{ items[1].name }}`), normalised the same way as the production resolver. An unresolvable token throws a plain `Error`.
 
 ## `NodeTestRunner`
 
@@ -121,3 +121,5 @@ if (!result.ok) {
 ### Good to know
 
 `MockContext` is a plain seeded store. The context handed to `afterExecute()` is that same seeded instance; unlike in the real executor, it does not additionally contain the step's own result.
+
+`options.context` is copied **shallowly**, like the real `ExecutionContext`: nested objects are shared by reference between runs that reuse the same seed. Treat values you read from the context as read-only, and build a fresh seed per test if a node mutates them.

@@ -138,4 +138,55 @@ describe('MockContext', () => {
     const ctx = new MockContext({ a: { weird: { toJSON: () => undefined } } });
     expect(() => ctx.interpolate('{{ a.weird }}')).toThrow('could not be serialized');
   });
+
+  it('resolves an array index via interpolate()', () => {
+    const ctx = new MockContext({ a: { list: ['x'] } });
+
+    expect(ctx.interpolate('{{ a.list[0] }}')).toBe('x');
+  });
+
+  it('resolves a top-level array index with a nested field', () => {
+    const ctx = new MockContext({ items: [{ name: 'a' }, { name: 'b' }] });
+
+    expect(ctx.interpolate('{{ items[1].name }}')).toBe('b');
+  });
+
+  it('resolves an array index in the middle of a path', () => {
+    const ctx = new MockContext({ a: { items: [{ name: 'a' }] } });
+
+    expect(ctx.interpolate('{{ a.items[0].name }}')).toBe('a');
+  });
+
+  it('throws a plain Error for an empty expression', () => {
+    const ctx = new MockContext({ a: 1 });
+
+    let thrown: unknown;
+    try {
+      ctx.interpolate('{{ }}');
+    } catch (err) {
+      thrown = err;
+    }
+
+    expect(thrown).toBeInstanceOf(Error);
+    expect((thrown as Error).name).toBe('Error');
+    expect((thrown as Error).message).toContain('at least one path segment');
+  });
+
+  it('throws instead of returning the whole store for a separator-only expression', () => {
+    const ctx = new MockContext({ a: 1 });
+
+    expect(() => ctx.interpolate('{{ . }}')).toThrow('at least one path segment');
+  });
+
+  it('throws for a non-numeric bracket segment', () => {
+    const ctx = new MockContext({ a: { list: ['x'] } });
+
+    expect(() => ctx.interpolate('{{ a.list[x] }}')).toThrow('no value found at "list[x]"');
+  });
+
+  it('throws for an out-of-range array index', () => {
+    const ctx = new MockContext({ a: { list: ['x'] } });
+
+    expect(() => ctx.interpolate('{{ a.list[9] }}')).toThrow('no value found at "9"');
+  });
 });

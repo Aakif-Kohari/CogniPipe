@@ -47,17 +47,19 @@ export class MockContext implements IExecutionContext {
   }
 
   /**
-   * Supports `{{ key.path.to.value }}` dot-notation resolution only.
-   * Does NOT support array bracket notation (`[0]`) — production
-   * ExecutionContext does; MockContext intentionally covers the common
-   * case only.
+   * Supports `{{ key.path.to.value }}` dot-notation and array index notation
+   * (`{{ a.list[0] }}`, `{{ items[1].name }}`), normalised exactly like the
+   * production resolver: `items[0].name` becomes `items.0.name` before the
+   * path is split. An expression with no path segments (`{{ }}`, `{{ . }}`)
+   * throws.
    *
    * Walks a plain-object snapshot of the store (via {@link toJSON}) rather
    * than special-casing the first path segment against the Map — this keeps
    * root-level and nested lookups on one code path instead of two. Only
    * resolves a segment when it is an own property of the current value, so
    * inherited `Object.prototype` members (`toString`, `constructor`, etc.)
-   * never resolve.
+   * never resolve. This guard is an intentional divergence from core's
+   * `resolveDotPath`, which has no own-property check.
    *
    * Objects and arrays are serialized as JSON strings to match production
    * interpolation behavior. `null` values are treated as missing paths.
@@ -71,7 +73,21 @@ export class MockContext implements IExecutionContext {
 
     return template.replace(/\{\{([^{}]+)\}\}/g, (_match, rawExpression: string) => {
       const expression = rawExpression.trim();
-      const segments = expression.split('.');
+
+      // Normalise array indices before splitting, exactly like core's resolveDotPath:
+      // "items[0].name" -> "items.0.name". Empty segments are dropped, as in core.
+      const segments = expression
+        .replace(/\[(\d+)\]/g, '.$1')
+        .split('.')
+        .filter(segment => segment.length > 0);
+
+      // Without this guard an expression such as `{{ }}` or `{{ . }}` yields zero
+      // segments, the loop below never runs, and the whole store is returned as JSON.
+      if (segments.length === 0) {
+        throw new Error(
+          `Cannot interpolate "{{ ${expression} }}": expression must contain at least one path segment.`,
+        );
+      }
 
       let current: unknown = data;
       for (const segment of segments) {
