@@ -169,13 +169,13 @@ describe('MockContext', () => {
 
     expect(thrown).toBeInstanceOf(Error);
     expect((thrown as Error).name).toBe('Error');
-    expect((thrown as Error).message).toContain('at least one path segment');
+    expect((thrown as Error).message).toContain('must start with a context key');
   });
 
   it('throws instead of returning the whole store for a separator-only expression', () => {
     const ctx = new MockContext({ a: 1 });
 
-    expect(() => ctx.interpolate('{{ . }}')).toThrow('at least one path segment');
+    expect(() => ctx.interpolate('{{ . }}')).toThrow('must start with a context key');
   });
 
   it('throws for a non-numeric bracket segment', () => {
@@ -188,5 +188,18 @@ describe('MockContext', () => {
     const ctx = new MockContext({ a: { list: ['x'] } });
 
     expect(() => ctx.interpolate('{{ a.list[9] }}')).toThrow('no value found at "9"');
+  });
+
+  it('rejects a leading separator instead of promoting the next segment to the root', () => {
+    const ctx = new MockContext({ items: [{ name: 'a' }] });
+
+    expect(() => ctx.interpolate('{{ .items[0].name }}')).toThrow('must start with a context key');
+    expect(() => ctx.interpolate('{{ [0] }}')).toThrow('must start with a context key');
+  });
+
+  it('leaves a token with nothing between the braces untouched, like core', () => {
+    const ctx = new MockContext({ a: 1 });
+
+    expect(ctx.interpolate('x {{}} y')).toBe('x {{}} y');
   });
 });

@@ -87,8 +87,10 @@ function interpolateConfig(config: NodeConfig, ctx: ExecutionContext): NodeConfi
 
 /**
  * True only for `{}` literals and `Object.create(null)` objects, the only
- * objects the config walk recurses into. Realm-safe: class instances, Dates
- * and Maps all fail it.
+ * objects the config walk recurses into. Realm-safe: plain objects from another
+ * realm still pass, while Dates, Maps and instances of ordinary classes fail.
+ * Heuristic: an object whose prototype itself has a null prototype (such as an
+ * instance of a `class extends null`) is treated as plain.
  */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (value === null || typeof value !== 'object') {

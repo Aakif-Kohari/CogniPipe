@@ -122,4 +122,4 @@ if (!result.ok) {
 
 `MockContext` is a plain seeded store. The context handed to `afterExecute()` is that same seeded instance; unlike in the real executor, it does not additionally contain the step's own result.
 
-`options.context` is copied **shallowly**, like the real `ExecutionContext`: nested objects are shared by reference between runs that reuse the same seed. Treat values you read from the context as read-only, and build a fresh seed per test if a node mutates them.
+`options.context` is copied **shallowly**, like the real `ExecutionContext`: only the top-level keys are copied, so nested objects are shared by reference between runs that reuse the same seed. Treat values you read from the context as read-only. If a node mutates a nested value and you need isolation between runs — including two `run()` calls in the same test — build fresh nested seed data for each run; reusing a seed is safe when the runs only read it.

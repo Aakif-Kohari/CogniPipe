@@ -6,6 +6,7 @@
  * reporting, and the guard against overlapping runs that use overrides.
  */
 
+import { runInNewContext } from 'node:vm';
 import type { IBaseNode, IExecutionContext, NodeConfig, NodeOutput } from '@cognipipe/types';
 import { MockContext } from '../MockContext';
 import { NodeTestRunner, type NodeTestRunResult } from '../NodeTestRunner';
@@ -234,6 +235,30 @@ describe('NodeTestRunner', () => {
       expect(result.resolvedConfig['m']).toBe(m);
       expect(result.output['d']).toBe(d);
       expect(result.output['m']).toBe(m);
+    });
+
+    it('still walks null-prototype and cross-realm plain objects, and leaves class instances alone', async () => {
+      class Tagged {
+        label = '{{ steps.auth.output.token }}';
+      }
+      const bare = Object.create(null) as Record<string, unknown>;
+      bare['v'] = '{{ steps.auth.output.token }}';
+      const foreign = runInNewContext('({ v: "{{ steps.auth.output.token }}" })') as Record<
+        string,
+        unknown
+      >;
+      const tagged = new Tagged();
+
+      const result = await new NodeTestRunner(EchoConfigNode).run(
+        { bare, foreign, tagged },
+        { context: SEED },
+      );
+
+      expectOk(result);
+      expect(result.resolvedConfig['bare']).toEqual({ v: 'abc' });
+      expect(result.resolvedConfig['foreign']).toEqual({ v: 'abc' });
+      expect(result.resolvedConfig['tagged']).toBe(tagged);
+      expect(tagged.label).toBe('{{ steps.auth.output.token }}');
     });
   });
 
