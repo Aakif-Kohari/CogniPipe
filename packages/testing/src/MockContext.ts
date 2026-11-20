@@ -48,10 +48,12 @@ export class MockContext implements IExecutionContext {
 
   /**
    * Supports `{{ key.path.to.value }}` dot-notation and array index notation
-   * (`{{ a.list[0] }}`, `{{ items[1].name }}`), normalised exactly like the
-   * production resolver: `items[0].name` becomes `items.0.name` before the
-   * path is split. An expression that does not start with a context key
-   * (`{{ }}`, `{{ . }}`, `{{ .items[0] }}`) throws, as in production.
+   * (`{{ a.list[0] }}`, `{{ items[1].name }}`). Like core's `resolveTemplate`,
+   * the root key is split off at the first `.`, `[` or `]` before the remainder
+   * is normalised: `items[0].name` becomes root `items` plus remainder
+   * `[0].name`, which normalises to `.0.name`. An expression that does not
+   * start with a context key (`{{ }}`, `{{ . }}`, `{{ .items[0] }}`) throws,
+   * as in production.
    *
    * Walks a plain-object snapshot of the store (via {@link toJSON}) rather
    * than special-casing the first path segment against the Map — this keeps
@@ -74,23 +76,27 @@ export class MockContext implements IExecutionContext {
     return template.replace(/\{\{([^{}]+)\}\}/g, (_match, rawExpression: string) => {
       const expression = rawExpression.trim();
 
-      // Core's resolveTemplate splits the root key off at the first '.', '[' or ']' BEFORE
-      // normalising the rest, so an expression that starts with one of them (or is empty)
-      // has an empty root key and is rejected in production. Reject it here too: filtering
-      // empty segments below would otherwise promote the next segment to the root, so
-      // `{{ .items[0].name }}` would resolve in a test but fail in production.
-      if (expression === '' || /^[.[\]]/.test(expression)) {
+      // Split the root key off at the first '.', '[' or ']' BEFORE normalising the rest, exactly
+      // like core's resolveTemplate. An empty root key (`{{ }}`, `{{ . }}`, `{{ .items[0] }}`)
+      // is rejected in production, so reject it here too instead of promoting the next segment.
+      const separatorIndex = expression.search(/[.[\]]/);
+      if (expression === '' || separatorIndex === 0) {
         throw new Error(
           `Cannot interpolate "{{ ${expression} }}": expression must start with a context key.`,
         );
       }
+      const rootKey = separatorIndex === -1 ? expression : expression.slice(0, separatorIndex);
+      const remainder = separatorIndex === -1 ? '' : expression.slice(separatorIndex);
 
-      // Normalise array indices like core's resolveDotPath: "items[0].name" -> "items.0.name".
-      // Empty segments after the root are dropped, as in core.
-      const segments = expression
-        .replace(/\[(\d+)\]/g, '.$1')
-        .split('.')
-        .filter(segment => segment.length > 0);
+      // Normalise array indices in the remainder like core's resolveDotPath:
+      // "[0].name" -> ".0.name". Empty segments are dropped, as in core.
+      const segments = [
+        rootKey,
+        ...remainder
+          .replace(/\[(\d+)\]/g, '.$1')
+          .split('.')
+          .filter(segment => segment.length > 0),
+      ];
 
       let current: unknown = data;
       for (const segment of segments) {

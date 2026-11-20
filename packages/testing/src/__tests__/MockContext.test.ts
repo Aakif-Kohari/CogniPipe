@@ -202,4 +202,13 @@ describe('MockContext', () => {
 
     expect(ctx.interpolate('x {{}} y')).toBe('x {{}} y');
   });
+
+  it('splits the root key at the first "[" like core instead of matching a bracketed seed key', () => {
+    const ctx = new MockContext({ 'a[x]': 'literal', b: ['y'] });
+
+    // Core looks up the root key "a", which is not in the store, so this must throw.
+    expect(() => ctx.interpolate('{{ a[x] }}')).toThrow();
+    // Valid indexed paths on a root key keep working.
+    expect(ctx.interpolate('{{ b[0] }}')).toBe('y');
+  });
 });

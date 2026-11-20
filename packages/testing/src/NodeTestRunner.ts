@@ -28,7 +28,13 @@ export interface NodeTestRunnerOptions {
   env?: Record<string, string | undefined>;
   /** Replaces `globalThis.fetch` for the duration of the run, then restores the original. */
   fetch?: typeof globalThis.fetch;
-  /** Resolve `{{ }}` in every string leaf of `config` via the MockContext, like WorkflowExecutor. Default true. */
+
+  /**
+   * Resolve `{{ }}` in every string leaf of `config` via the MockContext, like WorkflowExecutor.
+   * The walk descends into arrays and plain objects only; any other object (a `Date`, `Map`,
+   * class instance, ...) is passed to the node by reference and tokens inside it are not
+   * resolved. Default true.
+   */
   interpolate?: boolean;
 }
 

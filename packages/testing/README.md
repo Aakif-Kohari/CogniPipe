@@ -82,12 +82,12 @@ Same hook order as the executor: interpolate config, then `beforeExecute` (if de
 
 ### Options
 
-| Option        | Type                                  | Description                                                                                            |
-| ------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `context`     | `Record<string, unknown>`             | Seed data for the `MockContext`, e.g. `{ steps: { auth: { output: { token: 'abc' } } } }`.             |
-| `env`         | `Record<string, string \| undefined>` | Env vars set for the duration of the run, then restored. `undefined` makes sure the variable is unset. |
-| `fetch`       | `typeof globalThis.fetch`             | Replaces `globalThis.fetch` for the duration of the run, then restores the original.                   |
-| `interpolate` | `boolean`                             | Resolve `{{ }}` in every string leaf of `config` via the `MockContext`. Defaults to `true`.            |
+| Option        | Type                                  | Description                                                                                                                                                                                                                                                                        |
+| ------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `context`     | `Record<string, unknown>`             | Seed data for the `MockContext`, e.g. `{ steps: { auth: { output: { token: 'abc' } } } }`.                                                                                                                                                                                         |
+| `env`         | `Record<string, string \| undefined>` | Env vars set for the duration of the run, then restored. `undefined` makes sure the variable is unset.                                                                                                                                                                             |
+| `fetch`       | `typeof globalThis.fetch`             | Replaces `globalThis.fetch` for the duration of the run, then restores the original.                                                                                                                                                                                               |
+| `interpolate` | `boolean`                             | Resolve `{{ }}` in every string leaf of `config` via the `MockContext`. The walk descends into arrays and plain objects only: any other object (`Date`, `Map`, a class instance, …) is passed to the node by reference, and tokens inside it are not resolved. Defaults to `true`. |
 
 ### Result
 
