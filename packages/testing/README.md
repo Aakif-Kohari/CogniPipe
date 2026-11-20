@@ -35,7 +35,7 @@ ctx.interpolate('Bearer {{ steps.auth.output.token }}'); // 'Bearer abc'
 ctx.set('extra', 1).get('extra'); // 1 (ctx itself is untouched)
 ```
 
-`interpolate()` supports dot-notation only (`{{ a.b.c }}`), not array brackets (`[0]`). An unresolvable token throws a plain `Error`.
+`interpolate()` supports dot-notation (`{{ a.b.c }}`) and array indices (`{{ a.list[0] }}`, `{{ items[1].name }}`), normalised the same way as the production resolver. An unresolvable token throws a plain `Error`.
 
 ## `NodeTestRunner`
 
@@ -82,12 +82,12 @@ Same hook order as the executor: interpolate config, then `beforeExecute` (if de
 
 ### Options
 
-| Option        | Type                                  | Description                                                                                            |
-| ------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `context`     | `Record<string, unknown>`             | Seed data for the `MockContext`, e.g. `{ steps: { auth: { output: { token: 'abc' } } } }`.             |
-| `env`         | `Record<string, string \| undefined>` | Env vars set for the duration of the run, then restored. `undefined` makes sure the variable is unset. |
-| `fetch`       | `typeof globalThis.fetch`             | Replaces `globalThis.fetch` for the duration of the run, then restores the original.                   |
-| `interpolate` | `boolean`                             | Resolve `{{ }}` in every string leaf of `config` via the `MockContext`. Defaults to `true`.            |
+| Option        | Type                                  | Description                                                                                                                                                                                                                                                                        |
+| ------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `context`     | `Record<string, unknown>`             | Seed data for the `MockContext`, e.g. `{ steps: { auth: { output: { token: 'abc' } } } }`.                                                                                                                                                                                         |
+| `env`         | `Record<string, string \| undefined>` | Env vars set for the duration of the run, then restored. `undefined` makes sure the variable is unset.                                                                                                                                                                             |
+| `fetch`       | `typeof globalThis.fetch`             | Replaces `globalThis.fetch` for the duration of the run, then restores the original.                                                                                                                                                                                               |
+| `interpolate` | `boolean`                             | Resolve `{{ }}` in every string leaf of `config` via the `MockContext`. The walk descends into arrays and plain objects only: any other object (`Date`, `Map`, a class instance, …) is passed to the node by reference, and tokens inside it are not resolved. Defaults to `true`. |
 
 ### Result
 
@@ -121,3 +121,5 @@ if (!result.ok) {
 ### Good to know
 
 `MockContext` is a plain seeded store. The context handed to `afterExecute()` is that same seeded instance; unlike in the real executor, it does not additionally contain the step's own result.
+
+`options.context` is copied **shallowly**, like the real `ExecutionContext`: only the top-level keys are copied, so nested objects are shared by reference between runs that reuse the same seed. Treat values you read from the context as read-only. If a node mutates a nested value and you need isolation between runs — including two `run()` calls in the same test — build fresh nested seed data for each run; reusing a seed is safe when the runs only read it.

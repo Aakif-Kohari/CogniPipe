@@ -28,7 +28,13 @@ export interface NodeTestRunnerOptions {
   env?: Record<string, string | undefined>;
   /** Replaces `globalThis.fetch` for the duration of the run, then restores the original. */
   fetch?: typeof globalThis.fetch;
-  /** Resolve `{{ }}` in every string leaf of `config` via the MockContext, like WorkflowExecutor. Default true. */
+
+  /**
+   * Resolve `{{ }}` in every string leaf of `config` via the MockContext, like WorkflowExecutor.
+   * The walk descends into arrays and plain objects only; any other object (a `Date`, `Map`,
+   * class instance, ...) is passed to the node by reference and tokens inside it are not
+   * resolved. Default true.
+   */
   interpolate?: boolean;
 }
 
@@ -56,6 +62,21 @@ const OVERLAP_ERROR_MESSAGE =
   'overrides from one of them.';
 
 /**
+ * True only for `{}` literals and `Object.create(null)` objects, the only
+ * objects the config walk recurses into. Realm-safe: plain objects from another
+ * realm still pass, while Dates, Maps and instances of ordinary classes fail.
+ * Heuristic: an object whose prototype itself has a null prototype (such as an
+ * instance of a `class extends null`) is treated as plain.
+ */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+  const proto = Object.getPrototypeOf(value);
+  return proto === null || Object.getPrototypeOf(proto) === null;
+}
+
+/**
  * Mirrors the executor's config walk: strings go through `ctx.interpolate()`,
  * arrays and plain objects are recursed into, every other leaf passes through.
  */
@@ -68,7 +89,7 @@ function interpolateValue(value: unknown, ctx: MockContext): unknown {
     return value.map(item => interpolateValue(item, ctx));
   }
 
-  if (value !== null && typeof value === 'object') {
+  if (isPlainObject(value)) {
     const result: Record<string, unknown> = {};
     for (const [key, nestedValue] of Object.entries(value)) {
       result[key] = interpolateValue(nestedValue, ctx);
@@ -76,7 +97,7 @@ function interpolateValue(value: unknown, ctx: MockContext): unknown {
     return result;
   }
 
-  // Numbers, booleans, null, undefined — pass through unchanged.
+  // Numbers, booleans, null, undefined, Dates, Maps and other non-plain objects: pass through unchanged.
   return value;
 }
 
