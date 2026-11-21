@@ -68,9 +68,9 @@ interface StepCompletion {
 
 /**
  * Recursively walks a config object and calls `ctx.interpolate()` on every
- * string value. Numbers, booleans, arrays, and nested objects are traversed
- * but non-string leaf values are passed through unchanged. Arrays are walked
- * element by element.
+ * string value. Arrays are walked element by element and plain objects are
+ * traversed; every other non-string value (numbers, booleans, Dates, Maps,
+ * class instances, ...) is passed through unchanged, by reference.
  *
  * Implemented as a module-level function (not a class method) because it has
  * no dependency on WorkflowExecutor instance state.
@@ -83,6 +83,21 @@ interface StepCompletion {
  */
 function interpolateConfig(config: NodeConfig, ctx: ExecutionContext): NodeConfig {
   return interpolateValue(config, ctx) as NodeConfig;
+}
+
+/**
+ * True only for `{}` literals and `Object.create(null)` objects, the only
+ * objects the config walk recurses into. Realm-safe: plain objects from another
+ * realm still pass, while Dates, Maps and instances of ordinary classes fail.
+ * Heuristic: an object whose prototype itself has a null prototype (such as an
+ * instance of a `class extends null`) is treated as plain.
+ */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+  const proto = Object.getPrototypeOf(value);
+  return proto === null || Object.getPrototypeOf(proto) === null;
 }
 
 /**
@@ -99,7 +114,7 @@ function interpolateValue(value: unknown, ctx: ExecutionContext): unknown {
     return value.map(item => interpolateValue(item, ctx));
   }
 
-  if (value !== null && typeof value === 'object') {
+  if (isPlainObject(value)) {
     const result: Record<string, unknown> = {};
     for (const [key, nestedValue] of Object.entries(value)) {
       result[key] = interpolateValue(nestedValue, ctx);
@@ -107,7 +122,7 @@ function interpolateValue(value: unknown, ctx: ExecutionContext): unknown {
     return result;
   }
 
-  // Numbers, booleans, null, undefined — pass through unchanged.
+  // Numbers, booleans, null, undefined, Dates, Maps and other non-plain objects: pass through unchanged.
   return value;
 }
 

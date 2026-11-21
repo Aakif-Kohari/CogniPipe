@@ -138,4 +138,77 @@ describe('MockContext', () => {
     const ctx = new MockContext({ a: { weird: { toJSON: () => undefined } } });
     expect(() => ctx.interpolate('{{ a.weird }}')).toThrow('could not be serialized');
   });
+
+  it('resolves an array index via interpolate()', () => {
+    const ctx = new MockContext({ a: { list: ['x'] } });
+
+    expect(ctx.interpolate('{{ a.list[0] }}')).toBe('x');
+  });
+
+  it('resolves a top-level array index with a nested field', () => {
+    const ctx = new MockContext({ items: [{ name: 'a' }, { name: 'b' }] });
+
+    expect(ctx.interpolate('{{ items[1].name }}')).toBe('b');
+  });
+
+  it('resolves an array index in the middle of a path', () => {
+    const ctx = new MockContext({ a: { items: [{ name: 'a' }] } });
+
+    expect(ctx.interpolate('{{ a.items[0].name }}')).toBe('a');
+  });
+
+  it('throws a plain Error for an empty expression', () => {
+    const ctx = new MockContext({ a: 1 });
+
+    let thrown: unknown;
+    try {
+      ctx.interpolate('{{ }}');
+    } catch (err) {
+      thrown = err;
+    }
+
+    expect(thrown).toBeInstanceOf(Error);
+    expect((thrown as Error).name).toBe('Error');
+    expect((thrown as Error).message).toContain('must start with a context key');
+  });
+
+  it('throws instead of returning the whole store for a separator-only expression', () => {
+    const ctx = new MockContext({ a: 1 });
+
+    expect(() => ctx.interpolate('{{ . }}')).toThrow('must start with a context key');
+  });
+
+  it('throws for a non-numeric bracket segment', () => {
+    const ctx = new MockContext({ a: { list: ['x'] } });
+
+    expect(() => ctx.interpolate('{{ a.list[x] }}')).toThrow('no value found at "list[x]"');
+  });
+
+  it('throws for an out-of-range array index', () => {
+    const ctx = new MockContext({ a: { list: ['x'] } });
+
+    expect(() => ctx.interpolate('{{ a.list[9] }}')).toThrow('no value found at "9"');
+  });
+
+  it('rejects a leading separator instead of promoting the next segment to the root', () => {
+    const ctx = new MockContext({ items: [{ name: 'a' }] });
+
+    expect(() => ctx.interpolate('{{ .items[0].name }}')).toThrow('must start with a context key');
+    expect(() => ctx.interpolate('{{ [0] }}')).toThrow('must start with a context key');
+  });
+
+  it('leaves a token with nothing between the braces untouched, like core', () => {
+    const ctx = new MockContext({ a: 1 });
+
+    expect(ctx.interpolate('x {{}} y')).toBe('x {{}} y');
+  });
+
+  it('splits the root key at the first "[" like core instead of matching a bracketed seed key', () => {
+    const ctx = new MockContext({ 'a[x]': 'literal', b: ['y'] });
+
+    // Core looks up the root key "a", which is not in the store, so this must throw.
+    expect(() => ctx.interpolate('{{ a[x] }}')).toThrow();
+    // Valid indexed paths on a root key keep working.
+    expect(ctx.interpolate('{{ b[0] }}')).toBe('y');
+  });
 });

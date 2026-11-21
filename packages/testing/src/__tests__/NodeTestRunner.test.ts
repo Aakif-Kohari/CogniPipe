@@ -6,6 +6,7 @@
  * reporting, and the guard against overlapping runs that use overrides.
  */
 
+import { runInNewContext } from 'node:vm';
 import type { IBaseNode, IExecutionContext, NodeConfig, NodeOutput } from '@cognipipe/types';
 import { MockContext } from '../MockContext';
 import { NodeTestRunner, type NodeTestRunResult } from '../NodeTestRunner';
@@ -199,6 +200,65 @@ describe('NodeTestRunner', () => {
 
       expectOk(result);
       expect(result.resolvedConfig).toEqual(config);
+    });
+
+    it('passes non-plain values through by reference when interpolating', async () => {
+      const d = new Date('2026-01-01T00:00:00Z');
+      const m = new Map([['k', 'v']]);
+
+      const result = await new NodeTestRunner(EchoConfigNode).run(
+        { d, m, token: '{{ steps.auth.output.token }}' },
+        { context: SEED },
+      );
+
+      expectOk(result);
+      expect(result.resolvedConfig['d']).toBe(d);
+      expect(result.resolvedConfig['m']).toBe(m);
+      expect(result.resolvedConfig['token']).toBe('abc');
+      expect(result.output['d']).toBe(d);
+      expect(result.output['m']).toBe(m);
+    });
+
+    it('passes non-plain values through by reference when interpolate is false', async () => {
+      const d = new Date('2026-01-01T00:00:00Z');
+      const m = new Map([['k', 'v']]);
+      const config = { d, m, token: '{{ steps.auth.output.token }}' };
+
+      const result = await new NodeTestRunner(EchoConfigNode).run(config, {
+        context: SEED,
+        interpolate: false,
+      });
+
+      expectOk(result);
+      expect(result.resolvedConfig).toBe(config);
+      expect(result.resolvedConfig['d']).toBe(d);
+      expect(result.resolvedConfig['m']).toBe(m);
+      expect(result.output['d']).toBe(d);
+      expect(result.output['m']).toBe(m);
+    });
+
+    it('still walks null-prototype and cross-realm plain objects, and leaves class instances alone', async () => {
+      class Tagged {
+        label = '{{ steps.auth.output.token }}';
+      }
+      const bare = Object.create(null) as Record<string, unknown>;
+      bare['v'] = '{{ steps.auth.output.token }}';
+      const foreign = runInNewContext('({ v: "{{ steps.auth.output.token }}" })') as Record<
+        string,
+        unknown
+      >;
+      const tagged = new Tagged();
+
+      const result = await new NodeTestRunner(EchoConfigNode).run(
+        { bare, foreign, tagged },
+        { context: SEED },
+      );
+
+      expectOk(result);
+      expect(result.resolvedConfig['bare']).toEqual({ v: 'abc' });
+      expect(result.resolvedConfig['foreign']).toEqual({ v: 'abc' });
+      expect(result.resolvedConfig['tagged']).toBe(tagged);
+      expect(tagged.label).toBe('{{ steps.auth.output.token }}');
     });
   });
 
