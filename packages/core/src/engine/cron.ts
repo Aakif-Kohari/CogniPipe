@@ -285,10 +285,14 @@ export function parseCron(expression: string): ParsedCron {
  * In `'local'` mode the fields are matched against host-local wall-clock time.
  * The search runs on packed wall-clock values, so a DST shift can never corrupt
  * the cursor mid-search; only the final result is converted back to an instant.
- * Two DST consequences follow: a wall time inside a spring-forward gap fires at
- * the first instant after the gap, and the repeated hour of a fall-back is not
- * run twice. The returned instant is always strictly after `after`. IANA time
- * zones are out of scope.
+ * DST consequences in `'local'` mode: a wall time inside a spring-forward gap is
+ * resolved with the offset in force BEFORE the transition, so it fires shifted
+ * forward by the length of the gap (with a one-hour gap, `02:30` fires at `03:30`
+ * and `02:00` at `03:00`). The repeated hour of a fall-back is not run twice: its
+ * second pass is skipped entirely, so a sub-hourly schedule such as `* * * * *`
+ * pauses for the length of the repeated period — use `'utc'` for schedules that
+ * must keep a steady cadence. The returned instant is always strictly after
+ * `after`. IANA time zones are out of scope.
  *
  * @param cron - A parsed expression from {@link parseCron}.
  * @param after - The instant to search strictly after.

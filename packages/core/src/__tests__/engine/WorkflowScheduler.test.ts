@@ -6,7 +6,7 @@ import type {
   WorkflowConfig,
 } from '@cognipipe/types';
 import * as cron from '../../engine/cron';
-import { WorkflowScheduler } from '../../engine/WorkflowScheduler';
+import { WorkflowScheduler, type ScheduleOptions } from '../../engine/WorkflowScheduler';
 import { WorkflowExecutor } from '../../engine/WorkflowExecutor';
 import type { ExecutionResult } from '../../engine/WorkflowExecutor';
 import { NodeRegistry } from '../../engine/NodeRegistry';
@@ -154,6 +154,41 @@ describe('WorkflowScheduler', () => {
 
       expect(scheduler.schedule(config, '* * * * *').id).toBe('job-1');
     });
+
+    it.each([['UTC'], ['Asia/Kolkata'], ['']])(
+      'rejects an unsupported timezone %p instead of silently using local time',
+      timezone => {
+        const err = expectScheduleError(() =>
+          scheduler.schedule(config, '* * * * *', { timezone: timezone as never }),
+        );
+        expect(err.message).toContain('timezone');
+        expect(scheduler.listJobs()).toHaveLength(0);
+        expect(jest.getTimerCount()).toBe(0);
+      },
+    );
+
+    it.each([['Skip'], ['none'], ['']])('rejects an unsupported overlap policy %p', overlap => {
+      const err = expectScheduleError(() =>
+        scheduler.schedule(config, '* * * * *', { overlap: overlap as never }),
+      );
+      expect(err.message).toContain('overlap');
+      expect(scheduler.listJobs()).toHaveLength(0);
+    });
+
+    it('reads options.id exactly once', () => {
+      let reads = 0;
+      const options = {
+        get id(): string {
+          reads += 1;
+          return `job-x-${reads}`;
+        },
+      };
+
+      const job = scheduler.schedule(config, '* * * * *', options);
+
+      expect(reads).toBe(1);
+      expect(scheduler.listJobs().map(listed => listed.id)).toEqual([job.id]);
+    });
   });
 
   describe('run semantics', () => {
@@ -247,6 +282,22 @@ describe('WorkflowScheduler', () => {
       expect(job.nextRunAt()?.getHours()).toBe(9);
       expect(job.nextRunAt()?.getMinutes()).toBe(0);
     });
+
+    it('captures options at schedule() time: later changes to the options object do not affect the job', async () => {
+      const runSpy = jest.spyOn(executor, 'run');
+      const options: ScheduleOptions = { id: 'captured', initial: { team: 'core' } };
+      scheduler.schedule(config, '* * * * *', options);
+
+      options.id = 'other';
+      options.initial = { team: 'changed' };
+      await jest.advanceTimersByTimeAsync(MINUTE_MS);
+
+      expect(scheduler.listJobs().map(job => job.id)).toEqual(['captured']);
+      expect(runSpy).toHaveBeenCalledWith(config, {
+        team: 'core',
+        trigger: { type: 'schedule', cron: '* * * * *', scheduledAt: TICK_1 },
+      });
+    });
   });
 
   describe('job handles and lifecycle', () => {
@@ -271,6 +322,19 @@ describe('WorkflowScheduler', () => {
 
       await jest.advanceTimersByTimeAsync(MINUTE_MS);
       expect(job.nextRunAt()?.toISOString()).toBe('2026-01-01T00:02:00.000Z');
+    });
+
+    it('nextRunAt() returns a copy: mutating it cannot move the job', async () => {
+      const runSpy = jest.spyOn(executor, 'run');
+      const job = scheduler.schedule(config, '* * * * *');
+
+      job.nextRunAt()?.setMinutes(30);
+
+      expect(job.nextRunAt()?.toISOString()).toBe(TICK_1);
+      await jest.advanceTimersByTimeAsync(MINUTE_MS);
+      expect(runSpy).toHaveBeenCalledWith(config, {
+        trigger: { type: 'schedule', cron: '* * * * *', scheduledAt: TICK_1 },
+      });
     });
 
     it('stop() makes nextRunAt() undefined, prevents further runs and is idempotent', async () => {
@@ -554,6 +618,67 @@ describe('WorkflowScheduler', () => {
 
       expect(emitWarningSpy).toHaveBeenCalledTimes(1);
       expect(emitWarningSpy.mock.calls[0]?.[0]).toContain('handler exploded');
+      expect(job.nextRunAt()).toBeDefined();
+    });
+
+    it('an async onComplete that rejects is reported via emitWarning and the job keeps scheduling', async () => {
+      const emitWarningSpy = jest.spyOn(process, 'emitWarning').mockImplementation(() => undefined);
+      const job = scheduler.schedule(config, '* * * * *', {
+        onComplete: async () => {
+          throw new Error('async callback exploded');
+        },
+      });
+
+      await jest.advanceTimersByTimeAsync(MINUTE_MS);
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(emitWarningSpy).toHaveBeenCalledTimes(1);
+      expect(emitWarningSpy.mock.calls[0]?.[0]).toContain('async callback exploded');
+      expect(job.nextRunAt()).toBeDefined();
+    });
+
+    it('an async onError that rejects is reported via emitWarning', async () => {
+      const emitWarningSpy = jest.spyOn(process, 'emitWarning').mockImplementation(() => undefined);
+      const failing = buildWorkflow([{ name: 'boom', uses: '@cognipipe/node-fail', config: {} }]);
+      scheduler.schedule(failing, '* * * * *', {
+        onError: async () => {
+          throw new Error('async handler exploded');
+        },
+      });
+
+      await jest.advanceTimersByTimeAsync(MINUTE_MS);
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(emitWarningSpy).toHaveBeenCalledTimes(1);
+      expect(emitWarningSpy.mock.calls[0]?.[0]).toContain('async handler exploded');
+    });
+
+    it('reports a throwing callback with the ORIGINAL scheduled time even if it corrupted its info', async () => {
+      const emitWarningSpy = jest.spyOn(process, 'emitWarning').mockImplementation(() => undefined);
+      scheduler.schedule(config, '* * * * *', {
+        onComplete: (_result, info) => {
+          info.scheduledFor.setTime(Number.NaN);
+          throw new Error('callback exploded');
+        },
+      });
+
+      await jest.advanceTimersByTimeAsync(MINUTE_MS);
+
+      expect(emitWarningSpy).toHaveBeenCalledTimes(1);
+      expect(emitWarningSpy.mock.calls[0]?.[0]).toContain(TICK_1);
+    });
+
+    it('survives a callback that throws a value that cannot be converted to a string', async () => {
+      const emitWarningSpy = jest.spyOn(process, 'emitWarning').mockImplementation(() => undefined);
+      const job = scheduler.schedule(config, '* * * * *', {
+        onComplete: () => {
+          throw Object.create(null);
+        },
+      });
+
+      await jest.advanceTimersByTimeAsync(MINUTE_MS);
+
+      expect(emitWarningSpy).toHaveBeenCalledTimes(1);
       expect(job.nextRunAt()).toBeDefined();
     });
   });

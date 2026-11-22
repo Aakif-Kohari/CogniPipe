@@ -416,6 +416,22 @@ describe('nextCronRun — local timezone', () => {
       return transitions;
     }
 
+    /** Size of the clock change at a transition, measured from the host zone's own offsets. */
+    function shiftMs(sample: Date): number {
+      const before = new Date(sample.getTime() - HOUR_MS).getTimezoneOffset();
+      return Math.abs(sample.getTimezoneOffset() - before) * MINUTE_MS;
+    }
+
+    /** Walks back from an hourly sample to the first minute at which the new offset applies. */
+    function exactTransition(sample: Date): Date {
+      const newOffset = sample.getTimezoneOffset();
+      let t = sample.getTime();
+      while (new Date(t - MINUTE_MS).getTimezoneOffset() === newOffset) {
+        t -= MINUTE_MS;
+      }
+      return new Date(t);
+    }
+
     /**
      * Asks for the next run from EVERY minute in a window around `center` and
      * checks that each answer is strictly later than the instant it was asked
@@ -453,8 +469,40 @@ describe('nextCronRun — local timezone', () => {
     });
 
     dstIt('an every-minute schedule always moves forward around the fall-back overlap', () => {
-      expectEveryNextRunIsStrictlyLater('* * * * *', requireTransitions().fallBack, 2 * HOUR_MS);
+      const { fallBack } = requireTransitions();
+      // Longest gap: the whole repeated period plus the one minute to the next wall minute.
+      expectEveryNextRunIsStrictlyLater('* * * * *', fallBack, shiftMs(fallBack) + MINUTE_MS);
     });
+
+    dstIt(
+      'fires the first wall minute inside the spring-forward gap at the transition instant',
+      () => {
+        const { springForward } = requireTransitions();
+        const transition = exactTransition(springForward);
+        const lastBefore = new Date(transition.getTime() - MINUTE_MS);
+        const skippedWallMinutes = lastBefore.getHours() * 60 + lastBefore.getMinutes() + 1;
+        const hour = Math.floor(skippedWallMinutes / 60) % 24;
+        const minute = skippedWallMinutes % 60;
+        const parsed = parseCron(`${minute} ${hour} * * *`);
+
+        // That wall time does not exist today: it resolves with the pre-transition offset.
+        const onGapDay = nextCronRun(
+          parsed,
+          new Date(transition.getTime() - 10 * MINUTE_MS),
+          'local',
+        );
+        expect(onGapDay?.getTime()).toBe(transition.getTime());
+
+        // Control: on an ordinary day the same expression fires at exactly that local time.
+        const ordinary = nextCronRun(
+          parsed,
+          new Date(transition.getTime() - 3 * 24 * HOUR_MS),
+          'local',
+        );
+        expect(ordinary?.getHours()).toBe(hour);
+        expect(ordinary?.getMinutes()).toBe(minute);
+      },
+    );
 
     dstIt(
       'a daily schedule is never answered with a past instant inside the fall-back hour',

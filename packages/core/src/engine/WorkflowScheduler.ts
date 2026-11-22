@@ -66,17 +66,22 @@ export interface ScheduleOptions {
    */
   overlap?: 'skip' | 'allow';
   /**
-   * Extra seed data merged into the run's `initial` context. The `trigger` key
-   * is reserved — it is always set last and cannot be overridden.
+   * Extra seed data merged into the run's `initial` context. Shallow-copied when
+   * `schedule()` is called, so later changes to the object's top-level keys do not
+   * affect the job (nested values are shared by reference). The `trigger` key is
+   * reserved — it is always set last and cannot be overridden.
    */
   initial?: Record<string, unknown>;
-  /** Called with the ExecutionResult after each run that completes. */
-  onComplete?: (result: ExecutionResult, info: ScheduledRunInfo) => void;
   /**
-   * Called when a run rejects. If omitted, failures are reported via
+   * Called with the ExecutionResult after each run that completes. May be async: a
+   * rejected promise is reported like a throw and never becomes an unhandled rejection.
+   */
+  onComplete?: (result: ExecutionResult, info: ScheduledRunInfo) => void | Promise<void>;
+  /**
+   * Called when a run rejects. May be async. If omitted, failures are reported via
    * `process.emitWarning` — never thrown, never an unhandled rejection.
    */
-  onError?: (error: unknown, info: ScheduledRunInfo) => void;
+  onError?: (error: unknown, info: ScheduledRunInfo) => void | Promise<void>;
 }
 
 /**
@@ -111,10 +116,15 @@ interface JobState {
   readonly cron: string;
   readonly parsed: ParsedCron;
   readonly timezone: SchedulerTimezone;
+  readonly overlap: 'skip' | 'allow';
   readonly config: WorkflowConfig;
-  readonly options: ScheduleOptions;
+  /** Shallow snapshot of `options.initial`, taken once when schedule() is called. */
+  readonly initial: Readonly<Record<string, unknown>> | undefined;
+  readonly onComplete: ScheduleOptions['onComplete'];
+  readonly onError: ScheduleOptions['onError'];
   readonly handle: ScheduledJob;
-  nextAt: Date | undefined;
+  /** Epoch ms of the next fire, or undefined once stopped. A number, so no mutable Date is shared. */
+  nextAtMs: number | undefined;
   timer: ReturnType<typeof setTimeout> | undefined;
   /** Number of runs of this job currently in flight. */
   running: number;
@@ -126,8 +136,9 @@ interface JobState {
  * The executor is stateless per call, so one scheduler may drive many jobs (and
  * overlapping runs) through the same executor instance.
  *
- * Each run receives `{ ...options.initial, trigger: { type: 'schedule', cron,
- * scheduledAt } }` as its initial context, so steps can reference
+ * Each run receives a shallow snapshot of `options.initial` taken when
+ * `schedule()` is called, merged with `{ trigger: { type: 'schedule', cron,
+ * scheduledAt } }`, as its initial context, so steps can reference
  * `{{ trigger.scheduledAt }}`. Armed timers keep the Node.js event loop alive;
  * call {@link WorkflowScheduler.stopAll} on shutdown.
  *
@@ -165,8 +176,8 @@ export class WorkflowScheduler {
    * @param options - Per-job options (id, timezone, overlap, initial, callbacks).
    * @returns A live handle for inspecting and stopping the job.
    * @throws {CogniPipeError} SCHEDULE_INVALID if the expression is malformed, the
-   *   id is already in use, or the schedule can never fire. Nothing is armed
-   *   when this throws.
+   *   id is already in use, an unsupported `timezone` or `overlap` value is passed,
+   *   or the schedule can never fire. Nothing is armed when this throws.
    *
    * @example
    * ```typescript
@@ -175,14 +186,40 @@ export class WorkflowScheduler {
    * ```
    */
   schedule(config: WorkflowConfig, cron: string, options: ScheduleOptions = {}): ScheduledJob {
+    // Read every option exactly once, up front. The job keeps these captured values, so later
+    // changes to the caller's options object (or a getter on it) can never alter a live job.
+    const {
+      id: explicitId,
+      timezone = 'utc',
+      overlap = 'skip',
+      initial,
+      onComplete,
+      onError,
+    } = options;
+    const initialSnapshot = initial === undefined ? undefined : { ...initial };
+
     // Throws SCHEDULE_INVALID for a malformed expression before anything else.
     const parsed = parseCron(cron);
-    const timezone = options.timezone ?? 'utc';
 
-    if (options.id !== undefined && this.#jobs.has(options.id)) {
+    // Untyped callers (plain JS, a future YAML key) can pass any string. Anything other than
+    // the exact literals would silently mean host-local time / overlapping runs.
+    if (timezone !== 'utc' && timezone !== 'local') {
       throw new CogniPipeError(
-        `A scheduled job with id "${options.id}" already exists. Job ids must be unique — pass a different options.id or omit it to auto-generate one.`,
-        { code: COGNIPIPE_ERROR_CODES.SCHEDULE_INVALID, context: { jobId: options.id } },
+        `Unsupported timezone "${String(timezone)}". Use 'utc' or 'local' — IANA time zones are not supported.`,
+        { code: COGNIPIPE_ERROR_CODES.SCHEDULE_INVALID, context: { timezone } },
+      );
+    }
+    if (overlap !== 'skip' && overlap !== 'allow') {
+      throw new CogniPipeError(
+        `Unsupported overlap policy "${String(overlap)}". Use 'skip' or 'allow'.`,
+        { code: COGNIPIPE_ERROR_CODES.SCHEDULE_INVALID, context: { overlap } },
+      );
+    }
+
+    if (explicitId !== undefined && this.#jobs.has(explicitId)) {
+      throw new CogniPipeError(
+        `A scheduled job with id "${explicitId}" already exists. Job ids must be unique — pass a different options.id or omit it to auto-generate one.`,
+        { code: COGNIPIPE_ERROR_CODES.SCHEDULE_INVALID, context: { jobId: explicitId } },
       );
     }
 
@@ -196,14 +233,17 @@ export class WorkflowScheduler {
 
     // Consume an auto id only once every validation above has passed, so a
     // rejected schedule() call never burns a "job-N" number.
-    const id = options.id ?? this.#nextAutoId();
+    const id = explicitId ?? this.#nextAutoId();
 
     // The handle's methods close over `state`, which is assigned below before
     // the handle is ever returned to a caller.
     const handle: ScheduledJob = Object.freeze({
       id,
       cron,
-      nextRunAt: (): Date | undefined => (state.stopped ? undefined : state.nextAt),
+      // A fresh Date every call: the armed target is never exposed, so a caller
+      // mutating the result cannot move the job.
+      nextRunAt: (): Date | undefined =>
+        state.stopped || state.nextAtMs === undefined ? undefined : new Date(state.nextAtMs),
       isRunning: (): boolean => state.running > 0,
       stop: (): void => this.#stop(state),
     });
@@ -213,17 +253,20 @@ export class WorkflowScheduler {
       cron,
       parsed,
       timezone,
+      overlap,
       config,
-      options,
+      initial: initialSnapshot,
+      onComplete,
+      onError,
       handle,
-      nextAt: first,
+      nextAtMs: first.getTime(),
       timer: undefined,
       running: 0,
       stopped: false,
     };
 
     this.#jobs.set(id, state);
-    this.#arm(state, first);
+    this.#arm(state, first.getTime());
     return handle;
   }
 
@@ -269,57 +312,61 @@ export class WorkflowScheduler {
   }
 
   /**
-   * Arms the timer toward `target`. Delays beyond setTimeout's 2^31-1 ms cap
+   * Arms the timer toward `targetMs`. Delays beyond setTimeout's 2^31-1 ms cap
    * are clamped, so the timer fires as a "chunk" and #onTimer re-arms without
    * running — this is what makes far-future fire times safe.
    */
-  #arm(state: JobState, target: Date): void {
-    const delay = Math.min(Math.max(target.getTime() - Date.now(), 0), MAX_TIMER_DELAY_MS);
-    state.timer = setTimeout(() => this.#onTimer(state, target), delay);
+  #arm(state: JobState, targetMs: number): void {
+    const delay = Math.min(Math.max(targetMs - Date.now(), 0), MAX_TIMER_DELAY_MS);
+    state.timer = setTimeout(() => this.#onTimer(state, targetMs), delay);
   }
 
-  /** Timer callback: guards against early fires, advances the schedule, then launches a run. */
-  #onTimer(state: JobState, scheduledFor: Date): void {
+  /**
+   * Timer callback: guards against early fires, advances the schedule, then launches a run.
+   * Runs no user code, so nothing here can throw on the timer path.
+   */
+  #onTimer(state: JobState, scheduledMs: number): void {
     const now = Date.now();
-    if (now < scheduledFor.getTime()) {
+    if (now < scheduledMs) {
       // Either a >24.8-day chunk elapsed or the timer fired early — re-arm, never run.
-      this.#arm(state, scheduledFor);
+      this.#arm(state, scheduledMs);
       return;
     }
 
     // Compute the next tick from the SCHEDULED minute so on-time jitter can never
     // double-fire or skip a minute. After a suspension `now` is later and wins:
     // missed ticks are skipped (no backfill) and at most one run happens for the gap.
-    const next = nextCronRun(
-      state.parsed,
-      new Date(Math.max(now, scheduledFor.getTime())),
-      state.timezone,
-    );
+    const next = nextCronRun(state.parsed, new Date(Math.max(now, scheduledMs)), state.timezone);
     if (next === undefined) {
       // No further fire time exists; this run is the job's last.
       this.#stop(state);
     } else {
-      state.nextAt = next;
-      this.#arm(state, next);
+      const nextMs = next.getTime();
+      state.nextAtMs = nextMs;
+      this.#arm(state, nextMs);
     }
 
-    if ((state.options.overlap ?? 'skip') === 'skip' && state.running > 0) {
+    if (state.overlap === 'skip' && state.running > 0) {
       // The previous run is still in flight — skip this tick, keep the schedule.
       return;
     }
-    this.#launch(state, scheduledFor);
+    this.#launch(state, scheduledMs);
+  }
+
+  /** Builds the info object handed to a callback: always a fresh copy, never scheduler state. */
+  #info(state: JobState, scheduledMs: number): ScheduledRunInfo {
+    return { jobId: state.id, scheduledFor: new Date(scheduledMs) };
   }
 
   /** Dispatches one run. Every outcome is handled — nothing can reject unobserved. */
-  #launch(state: JobState, scheduledFor: Date): void {
-    const info: ScheduledRunInfo = { jobId: state.id, scheduledFor };
-    // `trigger` is spread LAST so a caller cannot override it through options.initial.
+  #launch(state: JobState, scheduledMs: number): void {
+    // `trigger` is spread LAST so a caller cannot override it through the initial data.
     const initial: Record<string, unknown> = {
-      ...state.options.initial,
+      ...state.initial,
       trigger: {
         type: 'schedule',
         cron: state.cron,
-        scheduledAt: scheduledFor.toISOString(),
+        scheduledAt: new Date(scheduledMs).toISOString(),
       },
     };
 
@@ -329,34 +376,50 @@ export class WorkflowScheduler {
     void this.#executor.run(state.config, initial).then(
       result => {
         state.running -= 1;
-        this.#notify(state, info, () => state.options.onComplete?.(result, info));
+        this.#notify(state, scheduledMs, () =>
+          state.onComplete?.(result, this.#info(state, scheduledMs)),
+        );
       },
       (error: unknown) => {
         state.running -= 1;
-        const onError = state.options.onError;
+        const onError = state.onError;
         if (onError === undefined) {
-          this.#warn(state, info, error);
+          this.#warn(state, scheduledMs, error);
         } else {
-          this.#notify(state, info, () => onError(error, info));
+          this.#notify(state, scheduledMs, () => onError(error, this.#info(state, scheduledMs)));
         }
       },
     );
   }
 
-  /** Invokes a user callback; a throwing callback must not crash the process either. */
-  #notify(state: JobState, info: ScheduledRunInfo, callback: () => void): void {
+  /**
+   * Invokes a user callback. A synchronous throw AND a rejected promise returned by an
+   * async callback are both reported, so neither can crash the process.
+   */
+  #notify(state: JobState, scheduledMs: number, callback: () => void | Promise<void>): void {
     try {
-      callback();
+      void Promise.resolve(callback()).catch((error: unknown) =>
+        this.#warn(state, scheduledMs, error),
+      );
     } catch (error) {
-      this.#warn(state, info, error);
+      this.#warn(state, scheduledMs, error);
     }
   }
 
-  /** Default failure reporting: a process warning — never a throw, never console output. */
-  #warn(state: JobState, info: ScheduledRunInfo, error: unknown): void {
-    const message = error instanceof Error ? error.message : String(error);
+  /**
+   * Default failure reporting: a process warning — never a throw, never console output.
+   * This is the last-resort reporter, so it must itself be unable to throw: it uses the
+   * private epoch ms (not a Date a callback could have corrupted) and a guarded message.
+   */
+  #warn(state: JobState, scheduledMs: number, error: unknown): void {
+    let message: string;
+    try {
+      message = error instanceof Error ? error.message : String(error);
+    } catch {
+      message = 'an error whose message could not be read';
+    }
     process.emitWarning(
-      `Scheduled job "${state.id}" (cron "${state.cron}") failed for the run scheduled at ${info.scheduledFor.toISOString()}: ${message}`,
+      `Scheduled job "${state.id}" (cron "${state.cron}") failed for the run scheduled at ${new Date(scheduledMs).toISOString()}: ${message}`,
       'CogniPipeSchedulerWarning',
     );
   }
@@ -369,7 +432,7 @@ export class WorkflowScheduler {
     state.stopped = true;
     clearTimeout(state.timer);
     state.timer = undefined;
-    state.nextAt = undefined;
+    state.nextAtMs = undefined;
     this.#jobs.delete(state.id);
   }
 }
