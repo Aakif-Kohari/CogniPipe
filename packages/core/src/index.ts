@@ -13,6 +13,7 @@
  * import { NodeRegistry } from '@cognipipe/core';
  * import { WorkflowExecutor } from '@cognipipe/core';
  * import { detectCycles } from '@cognipipe/core';
+ * import { WorkflowScheduler, parseCron, nextCronRun } from '@cognipipe/core';
  * ```
  *
  * Modules re-exported here:
@@ -26,6 +27,8 @@
  * - `engine/NodeRegistry`     — {@link NodeRegistry}, {@link NodeConstructor}
  * - `engine/WorkflowExecutor` — {@link WorkflowExecutor}, {@link ExecutionResult}, {@link StepError}
  * - `engine/dag`              — {@link detectCycles}
+ * - `engine/cron`             — {@link parseCron}, {@link nextCronRun}, {@link ParsedCron}, {@link SchedulerTimezone}
+ * - `engine/WorkflowScheduler` — {@link WorkflowScheduler}, {@link ScheduledJob}, {@link ScheduleOptions}, {@link ScheduledRunInfo}
  */
 export { CogniPipeError, isCogniPipeError } from './errors/CogniPipeError.js';
 export type { CogniPipeErrorOptions } from './errors/CogniPipeError.js';
@@ -42,3 +45,11 @@ export type { NodeConstructor } from './engine/NodeRegistry.js';
 export { WorkflowExecutor } from './engine/WorkflowExecutor.js';
 export type { ExecutionResult, StepError } from './engine/WorkflowExecutor.js';
 export { detectCycles } from './engine/dag.js';
+export { parseCron, nextCronRun } from './engine/cron.js';
+export type { ParsedCron, SchedulerTimezone } from './engine/cron.js';
+export { WorkflowScheduler } from './engine/WorkflowScheduler.js';
+export type {
+  ScheduledJob,
+  ScheduleOptions,
+  ScheduledRunInfo,
+} from './engine/WorkflowScheduler.js';
