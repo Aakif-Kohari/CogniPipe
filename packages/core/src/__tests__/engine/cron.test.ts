@@ -504,6 +504,33 @@ describe('nextCronRun — local timezone', () => {
       },
     );
 
+    dstIt('finds a shifted gap occurrence after the clocks have jumped', () => {
+      const { springForward } = requireTransitions();
+      const transition = exactTransition(springForward);
+      const elapsed = 10 * MINUTE_MS;
+      const before = new Date(transition.getTime() - MINUTE_MS);
+      const gapMinute = (before.getHours() * 60 + before.getMinutes() + 11) % (24 * 60);
+      const cron = parseCron(`${gapMinute % 60} ${Math.floor(gapMinute / 60)} * * *`);
+
+      const shifted = new Date(transition.getTime() + elapsed);
+      const after = new Date(transition.getTime() + MINUTE_MS);
+      expect(nextCronRun(cron, after, 'local')).toEqual(shifted);
+    });
+
+    const lordHoweIt =
+      Intl.DateTimeFormat().resolvedOptions().timeZone === 'Australia/Lord_Howe' ? it : it.skip;
+    lordHoweIt('orders shifted and ordinary matches by instant across a half-hour gap', () => {
+      const cron = parseCron('15,30,45 2 * * *');
+      const before = new Date('2026-10-03T15:29:00Z');
+      const first = new Date('2026-10-03T15:30:00Z'); // 02:30 local.
+      const second = new Date('2026-10-03T15:45:00Z'); // 02:15 shifted and 02:45 local.
+      const nextDay = new Date('2026-10-04T15:15:00Z'); // 02:15 local.
+
+      expect(nextCronRun(cron, before, 'local')).toEqual(first);
+      expect(nextCronRun(cron, first, 'local')).toEqual(second);
+      expect(nextCronRun(cron, second, 'local')).toEqual(nextDay);
+    });
+
     dstIt(
       'a daily schedule is never answered with a past instant inside the fall-back hour',
       () => {

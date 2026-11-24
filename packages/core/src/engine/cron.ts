@@ -273,6 +273,19 @@ export function parseCron(expression: string): ParsedCron {
   };
 }
 
+/** Packs local wall-clock fields into a pseudo-UTC timestamp. */
+function packLocalTime(date: Date): number {
+  return Date.UTC(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    date.getHours(),
+    date.getMinutes(),
+    date.getSeconds(),
+    date.getMilliseconds(),
+  );
+}
+
 /**
  * Computes the first minute STRICTLY after `after` that matches the parsed
  * cron expression (seconds and milliseconds are always 0), or `undefined`
@@ -284,7 +297,8 @@ export function parseCron(expression: string): ParsedCron {
  *
  * In `'local'` mode the fields are matched against host-local wall-clock time.
  * The search runs on packed wall-clock values, so a DST shift can never corrupt
- * the cursor mid-search; only the final result is converted back to an instant.
+ * the cursor mid-search. Matching wall times are converted to instants before
+ * selecting the earliest one.
  * DST consequences in `'local'` mode: a wall time inside a spring-forward gap is
  * resolved with the offset in force BEFORE the transition, so it fires shifted
  * forward by the length of the gap (with a one-hour gap, `02:30` fires at `03:30`
@@ -315,7 +329,8 @@ export function nextCronRun(
   // pseudo-UTC timestamp. All search arithmetic then happens on this packed
   // value, where days, hours and minutes are exact multiples — no DST
   // transition can shift the cursor mid-search.
-  const wall =
+  const afterMs = after.getTime();
+  const wallTime =
     timezone === 'utc'
       ? Date.UTC(
           after.getUTCFullYear(),
@@ -324,22 +339,29 @@ export function nextCronRun(
           after.getUTCHours(),
           after.getUTCMinutes(),
         )
-      : Date.UTC(
-          after.getFullYear(),
-          after.getMonth(),
-          after.getDate(),
-          after.getHours(),
-          after.getMinutes(),
-        );
+      : packLocalTime(after);
+  const wall = Math.floor(wallTime / MINUTE_MS) * MINUTE_MS;
 
   const horizonDate = new Date(wall);
   horizonDate.setUTCFullYear(horizonDate.getUTCFullYear() + SEARCH_HORIZON_YEARS);
   const horizon = horizonDate.getTime();
 
-  // Packing dropped seconds and ms; +1 minute makes the search strictly after.
+  // Start at the next wall minute unless a gap may have shifted earlier matches.
   let cursor = wall + MINUTE_MS;
 
-  while (cursor <= horizon) {
+  if (timezone === 'local') {
+    // A forward jump can shift a wall time before the cursor to an instant
+    // after `after`. Look back using the prior day's offset, which covers
+    // forward jumps up to a full day without rewinding on ordinary days.
+    const wallWithPriorOffset = packLocalTime(new Date(afterMs - DAY_MS)) + DAY_MS;
+    if (wallWithPriorOffset < wallTime) {
+      cursor = (Math.floor(wallWithPriorOffset / MINUTE_MS) + 1) * MINUTE_MS;
+    }
+  }
+
+  let best: Date | undefined;
+  let bestWall = Infinity;
+  while (cursor <= horizon && cursor < bestWall) {
     const candidate = new Date(cursor);
 
     if (!cron.months.has(candidate.getUTCMonth() + 1)) {
@@ -385,13 +407,24 @@ export function nextCronRun(
       // In local mode a fall-back overlap can resolve a wall time to the FIRST
       // of its two instants, which may not be after `after`. Returning it would
       // make a scheduler re-fire the same tick forever, so keep searching.
-      if (result.getTime() > after.getTime()) {
-        return result;
+      const instant = result.getTime();
+      if (instant > afterMs && (best === undefined || instant < best.getTime())) {
+        if (timezone === 'utc') {
+          return result;
+        }
+        const resolvedWall = packLocalTime(result);
+        if (resolvedWall === cursor) {
+          return result;
+        }
+        // A gap match shifted forward. Later wall times before its resolved
+        // wall time can still map to an earlier instant.
+        best = result;
+        bestWall = resolvedWall;
       }
     }
 
     cursor += MINUTE_MS;
   }
 
-  return undefined;
+  return best;
 }
