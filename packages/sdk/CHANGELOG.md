@@ -1,5 +1,12 @@
 # @cognipipe/sdk
 
+## 0.2.5
+
+### Patch Changes
+
+- Updated dependencies [1b0ffbd]
+  - @cognipipe/core@0.5.0
+
 ## 0.2.4
 
 ### Patch Changes
