@@ -25,7 +25,7 @@
  * - `engine/ExecutionContext` — {@link ExecutionContext}
  * - `engine/interpolation`    — {@link resolveTemplate}, {@link resolveDotPath}
  * - `engine/NodeRegistry`     — {@link NodeRegistry}, {@link NodeConstructor}
- * - `engine/WorkflowExecutor` — {@link WorkflowExecutor}, {@link ExecutionResult}, {@link StepError}
+ * - `engine/WorkflowExecutor` — {@link WorkflowExecutor} (incl. live `on()` / `off()` step events), {@link ExecutionResult}, {@link StepError}
  * - `engine/dag`              — {@link detectCycles}
  * - `engine/cron`             — {@link parseCron}, {@link nextCronRun}, {@link ParsedCron}, {@link SchedulerTimezone}
  * - `engine/WorkflowScheduler` — {@link WorkflowScheduler}, {@link ScheduledJob}, {@link ScheduleOptions}, {@link ScheduledRunInfo}

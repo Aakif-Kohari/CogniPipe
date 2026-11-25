@@ -12,6 +12,11 @@
  * successfully, or, if that dependency had `continueOnError: true`,
  * unsuccessfully. Cycle detection (`dag.ts`) runs as an upfront pass before
  * any step executes or any node is instantiated.
+ *
+ * Live execution events (`step:start`, `step:complete`, `step:error`) can be
+ * observed through {@link WorkflowExecutor.on} and {@link WorkflowExecutor.off}.
+ * Events are strictly observational: a listener failure is reported through
+ * `process.emitWarning` and can never fail, delay or alter a run.
  */
 
 import type {
@@ -21,6 +26,9 @@ import type {
   NodeOutput,
   RetryConfig,
   StepResult,
+  ExecutionEventMap,
+  ExecutionEventName,
+  ExecutionEventListener,
 } from '@cognipipe/types';
 import { ExecutionContext } from './ExecutionContext.js';
 import { NodeRegistry } from './NodeRegistry.js';
@@ -162,6 +170,11 @@ function computeBackoffDelay(retry: RetryConfig, attemptIndex: number): number {
  * For each step: instantiates the node, interpolates config, calls lifecycle hooks,
  * stores the output in context, and moves on once its dependents become ready.
  *
+ * Progress can be observed live with {@link WorkflowExecutor.on} and
+ * {@link WorkflowExecutor.off}: `step:start`, `step:complete` and `step:error`
+ * events carry the payload types from `@cognipipe/types`. Events are strictly
+ * observational — a listener can never fail, delay or alter a run.
+ *
  * @example
  * ```typescript
  * const registry = new NodeRegistry();
@@ -182,6 +195,18 @@ export class WorkflowExecutor {
   readonly #registry: NodeRegistry;
 
   /**
+   * Registered event listeners, keyed by event name. A Set dedups listeners
+   * ("the same function registered twice fires once") and preserves insertion
+   * order ("listeners fire in registration order"). The stored listener type is
+   * widened to the union of all payloads; the map key pins which payload a set
+   * actually receives, so the widening in on()/off() is storage-only.
+   */
+  readonly #listeners = new Map<
+    ExecutionEventName,
+    Set<ExecutionEventListener<ExecutionEventName>>
+  >();
+
+  /**
    * @param registry - The NodeRegistry containing all node constructors needed
    *   by the workflow being executed.
    */
@@ -190,9 +215,84 @@ export class WorkflowExecutor {
   }
 
   /**
+   * Registers a listener for a workflow execution event.
+   *
+   * Listeners are called synchronously at the emit point, in registration
+   * order, from a snapshot of the listener set — unsubscribing inside a
+   * listener does not skip the other listeners of that same emission.
+   * Registering the same function twice for one event registers it once.
+   *
+   * A listener can never affect the workflow: a synchronous throw or an async
+   * rejection is caught and reported via
+   * `process.emitWarning(message, 'CogniPipeListenerWarning')`, and `run()`
+   * never awaits an async listener. Events from concurrently running steps
+   * interleave, but each step's own events always arrive in order
+   * (`step:start`, then exactly one of `step:complete` / `step:error`).
+   *
+   * @param event - The event name to subscribe to.
+   * @param listener - Callback receiving that event's typed payload.
+   * @returns An unsubscribe function, equivalent to `off(event, listener)`.
+   *   Calling it more than once is a no-op.
+   *
+   * @example
+   * ```typescript
+   * const executor = new WorkflowExecutor(registry);
+   *
+   * executor.on('step:start', event => {
+   *   console.log(`[${event.workflowName}] ${event.stepName} started (${event.uses})`);
+   * });
+   * executor.on('step:complete', event => {
+   *   console.log(`${event.stepName} done in ${event.durationMs}ms (retries: ${event.retryCount})`);
+   * });
+   * const unsubscribe = executor.on('step:error', event => {
+   *   console.log(`${event.stepName} failed: ${event.error.message} (continued: ${event.continued})`);
+   * });
+   *
+   * await executor.run(config);
+   * unsubscribe();
+   * ```
+   */
+  on<K extends ExecutionEventName>(event: K, listener: ExecutionEventListener<K>): () => void {
+    let listeners = this.#listeners.get(event);
+    if (listeners === undefined) {
+      listeners = new Set();
+      this.#listeners.set(event, listeners);
+    }
+    // Storage-only widening: the map key pins which payload this set receives.
+    listeners.add(listener as ExecutionEventListener<ExecutionEventName>);
+    return () => {
+      this.off(event, listener);
+    };
+  }
+
+  /**
+   * Removes a listener previously registered with {@link WorkflowExecutor.on}.
+   * Removing a listener that was never registered (or was already removed) is a no-op.
+   *
+   * @param event - The event name the listener was registered under.
+   * @param listener - The exact function reference that was passed to `on()`.
+   *
+   * @example
+   * ```typescript
+   * const onComplete = (event: StepCompleteEvent): void => {
+   *   console.log(`${event.stepName} completed`);
+   * };
+   * executor.on('step:complete', onComplete);
+   * executor.off('step:complete', onComplete);
+   * ```
+   */
+  off<K extends ExecutionEventName>(event: K, listener: ExecutionEventListener<K>): void {
+    // Same storage-only widening as in on().
+    this.#listeners.get(event)?.delete(listener as ExecutionEventListener<ExecutionEventName>);
+  }
+
+  /**
    * Executes a validated workflow config using DAG-based parallel scheduling.
    * Steps with no unmet `dependsOn` entries run concurrently; a step waits for
    * every entry in its own `dependsOn` to complete before it starts.
+   *
+   * Emits `step:start`, `step:complete` and `step:error` events to any listeners
+   * registered with {@link WorkflowExecutor.on} as the run progresses.
    *
    * @param config - A fully validated WorkflowConfig (output of WorkflowValidator.validate()).
    * @param initial - Optional seed data to pre-populate the ExecutionContext before
@@ -326,7 +426,7 @@ export class WorkflowExecutor {
             throw fatalError;
           }
           try {
-            const stepError = await this.#runStep(step, ctx, scheduleContextWrite);
+            const stepError = await this.#runStep(config.name, step, ctx, scheduleContextWrite);
             if (stepError !== undefined) {
               stepErrors.push(stepError);
             }
@@ -373,6 +473,11 @@ export class WorkflowExecutor {
    * Executes a single step: instantiate → interpolate → beforeExecute →
    * execute (with retry) → store result → afterExecute.
    *
+   * Emits `step:start` right after instantiation, `step:complete` once
+   * afterExecute() has succeeded, and `step:error` for any failure inside the
+   * try block (see {@link WorkflowExecutor.on} for the delivery contract).
+   *
+   * @param workflowName - The running workflow's `name`, carried on every event payload.
    * @param step - The step to execute.
    * @param ctx - The ExecutionContext as of the moment every entry in this
    *   step's `dependsOn` has completed. Read once at the start and used for
@@ -388,6 +493,7 @@ export class WorkflowExecutor {
    *   fatal (non-`continueOnError`) failure.
    */
   async #runStep(
+    workflowName: string,
     step: StepConfig,
     ctx: ExecutionContext,
     scheduleContextWrite: (stepName: string, result: StepResult) => Promise<ExecutionContext>,
@@ -399,6 +505,19 @@ export class WorkflowExecutor {
     // *execution* failure, so it is not eligible for continueOnError and is
     // not re-wrapped as STEP_EXECUTION_FAILED.
     const node = this.#registry.instantiate(step.uses);
+
+    // step:start fires once per step: after a successful instantiate() (so an
+    // instantiation failure emits nothing), before interpolation and
+    // beforeExecute(), and never again on retries. `stepStartTime` is the origin
+    // for step:error's durationMs; the execute-loop `startTime` below stays the
+    // origin for StepResult.durationMs and step:complete's durationMs.
+    const stepStartTime = Date.now();
+    this.#emit('step:start', {
+      workflowName,
+      stepName: step.name,
+      uses: step.uses,
+      startedAt: new Date(stepStartTime).toISOString(),
+    });
 
     try {
       // Config interpolation and beforeExecute() are inside this try block
@@ -459,15 +578,44 @@ export class WorkflowExecutor {
         await node.afterExecute(output, nextCtx);
       }
 
+      // step:complete fires only after afterExecute() succeeded (the context
+      // write is already applied). Every field comes from the StepResult that
+      // was just stored, so listeners and downstream interpolation never disagree.
+      this.#emit('step:complete', {
+        workflowName,
+        stepName: step.name,
+        uses: step.uses,
+        output,
+        durationMs: stepResult.durationMs,
+        retryCount: stepResult.retryCount,
+        completedAt: stepResult.completedAt,
+      });
+
       return undefined;
     } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+
+      // step:error carries the ORIGINAL error, never the STEP_EXECUTION_FAILED
+      // wrapper built below. It is emitted before the continueOnError branch
+      // decides whether to rethrow, so a fatal step's event always arrives
+      // before run() rejects.
+      this.#emit('step:error', {
+        workflowName,
+        stepName: step.name,
+        uses: step.uses,
+        error,
+        continued: step.continueOnError === true,
+        durationMs: Date.now() - stepStartTime,
+        failedAt: new Date().toISOString(),
+      });
+
       if (step.continueOnError === true) {
         // Do NOT store a StepResult for a failed step — downstream steps that
         // try to interpolate this step's output will throw INTERPOLATION_ERROR,
         // which is intentional and informative.
         return {
           stepName: step.name,
-          error: err instanceof Error ? err : new Error(String(err)),
+          error,
         };
       }
 
@@ -479,6 +627,47 @@ export class WorkflowExecutor {
           cause: err instanceof Error ? err : undefined,
         },
       );
+    }
+  }
+
+  /**
+   * Delivers an event payload to every listener registered for `event`.
+   *
+   * Iterates a snapshot of the listener set, so a listener that unsubscribes
+   * another (or itself) cannot skip or repeat a delivery within this emission.
+   * Listener failures are contained: a synchronous throw is caught and an async
+   * rejection is handled via `.catch`; both surface only as a
+   * `process.emitWarning(..., 'CogniPipeListenerWarning')`. The promise returned
+   * by an async listener is deliberately not awaited — a slow or broken listener
+   * must never delay or fail the workflow.
+   *
+   * @param event - The event name being emitted.
+   * @param payload - That event's typed payload.
+   */
+  #emit<K extends ExecutionEventName>(event: K, payload: ExecutionEventMap[K]): void {
+    const listeners = this.#listeners.get(event);
+    if (listeners === undefined || listeners.size === 0) {
+      return;
+    }
+
+    const reportListenerFailure = (reason: unknown): void => {
+      const detail = reason instanceof Error ? reason.message : String(reason);
+      process.emitWarning(
+        `A "${event}" listener failed and was ignored: ${detail}`,
+        'CogniPipeListenerWarning',
+      );
+    };
+
+    for (const listener of [...listeners]) {
+      try {
+        const outcome = listener(payload);
+        if (outcome !== undefined) {
+          // Fire-and-forget: run() never awaits a listener's promise.
+          void Promise.resolve(outcome).catch(reportListenerFailure);
+        }
+      } catch (err) {
+        reportListenerFailure(err);
+      }
     }
   }
 }
