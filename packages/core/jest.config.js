@@ -1,5 +1,6 @@
 /** @type {import('ts-jest').JestConfigWithTsJest} */
 export default {
+  globalSetup: './jest.global-setup.js',
   testEnvironment: 'node',
   transform: {
     '^.+\\.tsx?$': [
