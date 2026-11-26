@@ -840,6 +840,85 @@ describe('WorkflowExecutor events', () => {
       expect(errorEvent.error).toBeInstanceOf(Error);
       expect(errorEvent.error.message).toBe('raw string failure');
     });
+
+    it('still emits step:error and rejects with STEP_EXECUTION_FAILED when a node throws a value that cannot be converted to a string', async () => {
+      const registry = new NodeRegistry();
+
+      class ThrowsUnconvertibleNode implements IBaseNode {
+        async execute(_config: NodeConfig, _ctx: IExecutionContext): Promise<NodeOutput> {
+          throw Object.create(null);
+        }
+      }
+
+      registry.register('@cognipipe/node-throw-unconvertible', ThrowsUnconvertibleNode);
+      const executor = new WorkflowExecutor(registry);
+      const events = recordEvents(executor);
+
+      let thrown: unknown;
+      await executor
+        .run(
+          buildWorkflow([
+            { name: 'step-a', uses: '@cognipipe/node-throw-unconvertible', config: {} },
+          ]),
+        )
+        .catch((err: unknown) => {
+          thrown = err;
+        });
+
+      // The contract holds: one start, exactly one terminal event.
+      expect(labels(events)).toEqual(['step:start:step-a', 'step:error:step-a']);
+      const errorEvent = at(payloadsOf(events, 'step:error'), 0);
+      expect(errorEvent.error).toBeInstanceOf(Error);
+      expect(errorEvent.error.message).toContain('could not be converted to a string');
+      expect(errorEvent.continued).toBe(false);
+
+      // run() rejects with the ordinary wrapper, not a raw TypeError.
+      if (!isCogniPipeError(thrown)) {
+        throw new Error('Expected run() to reject with a CogniPipeError');
+      }
+      expect(thrown.code).toBe(COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED);
+      expect(thrown.message).toContain('could not be converted to a string');
+      expect(thrown.cause).toBeUndefined();
+    });
+
+    it('continues the workflow when a continueOnError step throws a value that cannot be converted to a string', async () => {
+      const registry = new NodeRegistry();
+
+      class ThrowsUnconvertibleNode implements IBaseNode {
+        async execute(_config: NodeConfig, _ctx: IExecutionContext): Promise<NodeOutput> {
+          throw Object.create(null);
+        }
+      }
+
+      registry.register('@cognipipe/node-throw-unconvertible', ThrowsUnconvertibleNode);
+      registry.register('@cognipipe/node-echo', EchoNode);
+      const executor = new WorkflowExecutor(registry);
+      const events = recordEvents(executor);
+
+      const result = await executor.run(
+        buildWorkflow([
+          {
+            name: 'soft',
+            uses: '@cognipipe/node-throw-unconvertible',
+            config: {},
+            continueOnError: true,
+          },
+          { name: 'after', uses: '@cognipipe/node-echo', config: {}, dependsOn: ['soft'] },
+        ]),
+      );
+
+      expect(labels(events)).toEqual([
+        'step:start:soft',
+        'step:error:soft',
+        'step:start:after',
+        'step:complete:after',
+      ]);
+      const errorEvent = at(payloadsOf(events, 'step:error'), 0);
+      expect(errorEvent.continued).toBe(true);
+      // The event and stepErrors carry the same normalised Error.
+      expect(errorEvent.error).toBe(at(result.stepErrors, 0).error);
+      expect(errorEvent.error.message).toContain('could not be converted to a string');
+    });
   });
 
   describe('steps that never start', () => {

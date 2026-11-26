@@ -166,6 +166,28 @@ function computeBackoffDelay(retry: RetryConfig, attemptIndex: number): number {
   return base; // 'linear' or undefined — constant delay.
 }
 
+/** Fixed text used when a thrown value cannot be turned into a message. */
+const UNCONVERTIBLE_MESSAGE = 'a value that could not be converted to a string';
+
+/**
+ * Describes any thrown value as text without ever throwing: String() throws for values such
+ * as Object.create(null), and an Error subclass can have a throwing `message` getter. It is
+ * used on failure paths where a second throw would skip a terminal event or replace the
+ * real failure.
+ */
+function describeThrown(value: unknown): string {
+  try {
+    return value instanceof Error ? value.message : String(value);
+  } catch {
+    return UNCONVERTIBLE_MESSAGE;
+  }
+}
+
+/** Returns `value` itself when it is an Error, otherwise a new Error describing it. Never throws. */
+function toError(value: unknown): Error {
+  return value instanceof Error ? value : new Error(describeThrown(value));
+}
+
 /**
  * Runs a validated WorkflowConfig using a DAG-based scheduler.
  * For each step: instantiates the node, interpolates config, calls lifecycle hooks,
@@ -598,7 +620,7 @@ export class WorkflowExecutor {
 
       return undefined;
     } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err));
+      const error = toError(err);
 
       // step:error carries the ORIGINAL error, never the STEP_EXECUTION_FAILED
       // wrapper built below. It is emitted before the continueOnError branch
@@ -624,14 +646,11 @@ export class WorkflowExecutor {
         };
       }
 
-      throw new CogniPipeError(
-        `Step "${step.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
-        {
-          code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
-          context: { stepName: step.name, uses: step.uses },
-          cause: err instanceof Error ? err : undefined,
-        },
-      );
+      throw new CogniPipeError(`Step "${step.name}" failed: ${describeThrown(err)}`, {
+        code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+        context: { stepName: step.name, uses: step.uses },
+        cause: err instanceof Error ? err : undefined,
+      });
     }
   }
 
@@ -656,18 +675,9 @@ export class WorkflowExecutor {
     }
 
     const reportListenerFailure = (reason: unknown): void => {
-      // This runs on the failure path of user code, so it must be unable to throw itself:
-      // String() throws for values such as Object.create(null), and an Error subclass can
-      // have a throwing `message` getter. A throw here would escape #emit and break the step
-      // (or become an unhandled rejection when called from the .catch below).
-      let detail: string;
-      try {
-        detail = String(reason instanceof Error ? reason.message : reason);
-      } catch {
-        detail = 'a value that could not be converted to a string';
-      }
+      // describeThrown() cannot throw, so this last-resort reporter cannot either.
       process.emitWarning(
-        `A "${event}" listener failed and was ignored: ${detail}`,
+        `A "${event}" listener failed and was ignored: ${describeThrown(reason)}`,
         'CogniPipeListenerWarning',
       );
     };
