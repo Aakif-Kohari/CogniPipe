@@ -16,6 +16,8 @@
  * - `BaseNode`        — {@link IBaseNode}, {@link CogniNodeMeta}
  * - `ai-provider.types` — {@link AiProviderConfig}, {@link AiRateLimitPolicy}, {@link AiProviderCapability}
  * - `ai-node.types`   — {@link AiNodeOutput}, {@link AiExecutionMetadata}
+ * - `events.types`    — {@link StepStartEvent}, {@link StepCompleteEvent}, {@link StepErrorEvent},
+ *   {@link ExecutionEventMap}, {@link ExecutionEventName}, {@link ExecutionEventListener}
  */
 export * from './workflow.types.js';
 export * from './node.types.js';
@@ -23,3 +25,4 @@ export * from './context.types.js';
 export * from './BaseNode.js';
 export * from './ai-provider.types.js';
 export * from './ai-node.types.js';
+export * from './events.types.js';
