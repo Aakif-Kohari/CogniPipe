@@ -16,5 +16,5 @@ steps:
     dependsOn: ['fetch-fact']
     config:
       operation: pick
-      input: '{{ steps.fetch-fact.output.body }}'
+      inputPath: 'steps.fetch-fact.output.body'
       fields: ['fact', 'length']

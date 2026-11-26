@@ -1,8 +1,8 @@
 # Hello World — CogniPipe Example
 
 A minimal two-step workflow that demonstrates the core CogniPipe `workflow.yaml`
-syntax: sequential steps wired together with `dependsOn` and `{{ }}` context
-interpolation.
+syntax: sequential steps wired together with `dependsOn`, where a later step
+reads an earlier step's output from the shared context.
 
 ## What this workflow does
 
@@ -10,8 +10,12 @@ The workflow fetches a random cat fact from the public `catfact.ninja` API in an
 HTTP step, then passes the response body into a transform step that picks just
 the `fact` and `length` fields. It is the smallest example that exercises every
 building block a real CogniPipe pipeline relies on — a `name`/`version` header,
-two steps connected by `dependsOn`, and a `{{ steps.<step-name>.<path> }}`
-interpolation expression reading one step's output from the next.
+two steps connected by `dependsOn`, and an `inputPath` of the form
+`steps.<step-name>.output.<path>` that reads one step's output from the next.
+The transform step uses `inputPath` rather than a `{{ }}` expression because
+`{{ }}` values reach a node as text, while `inputPath` hands the node the live
+response body — see the
+[node-transform README](../../nodes/node-transform/README.md#why-inputpath--datapath-and-why-path).
 
 ## How to run
 
@@ -44,8 +48,8 @@ fresh checkout because the dependency `.d.ts` files are not built yet.
 the CLI's context. Neither `@cognipipe/node-http` nor `@cognipipe/node-transform`
 is declared as a dependency of the `cognipipe` CLI package, so both availability
 checks fail today — this reflects the package-resolution boundary, not the
-implementation status of the nodes (`node-http` is in fact implemented; see
-[Nodes used](#nodes-used) below). The structural checks — parse, schema
+implementation status of the nodes (`node-http` and `node-transform` are both
+implemented; see [Nodes used](#nodes-used) below). The structural checks — parse, schema
 validation, `dependsOn` references, and cycle detection — still pass.
 
 For a guarantee that the YAML is structurally valid **today**, use the snippet
@@ -92,12 +96,13 @@ example.
 
 ## Nodes used
 
-| Node         | Package                     | Status                                                                                                                                                                                                         |
-| ------------ | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| HTTP Request | `@cognipipe/node-http`      | Implemented — supports `GET`, `POST`, `PUT`, `DELETE`, and `PATCH` via Node.js 22's built-in `fetch`. See [`nodes/node-http/README.md`](../../nodes/node-http/README.md).                                      |
-| Transform    | `@cognipipe/node-transform` | In active development — currently a stub package (`0.0.0`, no source). The `operation: pick` / `fields` config used by `log-result` is the intended contract this example pins down for the node to grow into. |
+| Node         | Package                     | Status                                                                                                                                                                                                                                        |
+| ------------ | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HTTP Request | `@cognipipe/node-http`      | Implemented — supports `GET`, `POST`, `PUT`, `DELETE`, and `PATCH` via Node.js 22's built-in `fetch`. See [`nodes/node-http/README.md`](../../nodes/node-http/README.md).                                                                     |
+| Transform    | `@cognipipe/node-transform` | Implemented — `pick`, `parseCsv` and `template` operations. See [`nodes/node-transform/README.md`](../../nodes/node-transform/README.md). The package is still private and unpublished (`0.0.0`), so this workflow cannot run end to end yet. |
 
 The `fetch-fact` step is fully specified against the implemented `node-http`
-config (`url`, `method`). The `log-result` step documents the shape that
-`node-transform` is expected to support; once that node lands, this workflow
-will run without changes.
+config (`url`, `method`), and the `log-result` step against the implemented
+`node-transform` config (`operation`, `inputPath`, `fields`). Both packages are
+still private and unpublished, so the workflow cannot run end to end until they
+can be resolved from the CLI (see [How to run](#how-to-run)).
