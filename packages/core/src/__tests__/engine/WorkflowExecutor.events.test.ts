@@ -224,7 +224,7 @@ describe('WorkflowExecutor events', () => {
       ]);
     });
 
-    it('emits step:complete only after the result is written to the context', async () => {
+    it('emits step:complete for each step of a dependency chain, in order', async () => {
       const registry = new NodeRegistry();
       registry.register('@cognipipe/node-echo', EchoNode);
       const executor = new WorkflowExecutor(registry);
@@ -251,6 +251,35 @@ describe('WorkflowExecutor events', () => {
 
       expect(stepsSeenByListener).toEqual(['first', 'second']);
       expect(getStepResult(result, 'second').output).toEqual({ echoed: { seen: 'x' } });
+    });
+
+    it('emits the output currently stored in the context, even if afterExecute replaced it', async () => {
+      const registry = new NodeRegistry();
+      const replacement = { replaced: true };
+
+      class ReplacingNode implements IBaseNode {
+        async execute(_config: NodeConfig, _ctx: IExecutionContext): Promise<NodeOutput> {
+          return { original: true };
+        }
+        async afterExecute(_output: NodeOutput, ctx: IExecutionContext): Promise<void> {
+          const stored = (ctx.get('steps') as Record<string, StepResult>)['replacer'];
+          if (stored !== undefined) {
+            stored.output = replacement;
+          }
+        }
+      }
+
+      registry.register('@cognipipe/node-replacing', ReplacingNode);
+      const executor = new WorkflowExecutor(registry);
+      const events = recordEvents(executor);
+
+      const result = await executor.run(
+        buildWorkflow([{ name: 'replacer', uses: '@cognipipe/node-replacing', config: {} }]),
+      );
+
+      const complete = at(payloadsOf(events, 'step:complete'), 0);
+      expect(complete.output).toBe(replacement);
+      expect(complete.output).toBe(getStepResult(result, 'replacer').output);
     });
   });
 
@@ -1125,6 +1154,75 @@ describe('WorkflowExecutor events', () => {
 
       expect(warnSpy).toHaveBeenCalledWith(
         expect.stringContaining('raw listener reason'),
+        'CogniPipeListenerWarning',
+      );
+    });
+
+    it('survives a listener that throws a value that cannot be converted to a string', async () => {
+      const registry = new NodeRegistry();
+      registry.register('@cognipipe/node-echo', EchoNode);
+      const executor = new WorkflowExecutor(registry);
+      const warnSpy = jest.spyOn(process, 'emitWarning').mockImplementation(() => {});
+      const seen: string[] = [];
+      executor.on('step:start', () => {
+        throw Object.create(null);
+      });
+      executor.on('step:start', event => {
+        seen.push(event.stepName);
+      });
+
+      const result = await executor.run(
+        buildWorkflow([{ name: 'step-a', uses: '@cognipipe/node-echo', config: {} }]),
+      );
+
+      expect(getStepResult(result, 'step-a').output).toEqual({ echoed: {} });
+      expect(result.stepErrors).toEqual([]);
+      expect(seen).toEqual(['step-a']);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('could not be converted to a string'),
+        'CogniPipeListenerWarning',
+      );
+    });
+
+    it('survives an async listener that rejects with a value that cannot be converted to a string', async () => {
+      const registry = new NodeRegistry();
+      registry.register('@cognipipe/node-echo', EchoNode);
+      const executor = new WorkflowExecutor(registry);
+      const warnSpy = jest.spyOn(process, 'emitWarning').mockImplementation(() => {});
+      executor.on('step:complete', () => Promise.reject(Object.create(null)));
+
+      const result = await executor.run(
+        buildWorkflow([{ name: 'step-a', uses: '@cognipipe/node-echo', config: {} }]),
+      );
+      await tick();
+
+      expect(getStepResult(result, 'step-a').output).toEqual({ echoed: {} });
+      // The executor's own .catch handler produced this warning, which proves the
+      // rejection was handled and the handler itself did not throw.
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('could not be converted to a string'),
+        'CogniPipeListenerWarning',
+      );
+    });
+
+    it('still rejects with STEP_EXECUTION_FAILED when a step:error listener throws an unconvertible value', async () => {
+      const registry = new NodeRegistry();
+      registry.register('@cognipipe/node-fail', FailNode);
+      const executor = new WorkflowExecutor(registry);
+      const warnSpy = jest.spyOn(process, 'emitWarning').mockImplementation(() => {});
+      executor.on('step:error', () => {
+        throw Object.create(null);
+      });
+
+      await expect(
+        executor.run(buildWorkflow([{ name: 'step-a', uses: '@cognipipe/node-fail', config: {} }])),
+      ).rejects.toMatchObject({
+        code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+        message: expect.stringContaining('node failed'),
+      });
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('could not be converted to a string'),
         'CogniPipeListenerWarning',
       );
     });

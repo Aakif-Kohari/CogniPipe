@@ -8,7 +8,8 @@
  *
  * Every started step emits exactly one terminal event: `step:complete` on
  * success, `step:error` on failure (including `continueOnError` failures).
- * Listeners are strictly observational and can never affect execution.
+ * Listeners are strictly observational and a listener can never fail or alter
+ * a run.
  */
 
 /**
@@ -94,7 +95,8 @@ export type ExecutionEventName = keyof ExecutionEventMap;
  * Async listeners are never awaited by the executor; a synchronous throw or
  * an async rejection is reported via
  * `process.emitWarning(message, 'CogniPipeListenerWarning')` and can never
- * fail, delay or alter the workflow run.
+ * fail or alter the workflow run. A synchronous listener runs inline, so keep
+ * it fast.
  */
 export type ExecutionEventListener<K extends ExecutionEventName> = (
   event: ExecutionEventMap[K],

@@ -16,7 +16,8 @@
  * Live execution events (`step:start`, `step:complete`, `step:error`) can be
  * observed through {@link WorkflowExecutor.on} and {@link WorkflowExecutor.off}.
  * Events are strictly observational: a listener failure is reported through
- * `process.emitWarning` and can never fail, delay or alter a run.
+ * `process.emitWarning` and can never fail or alter a run, and async listeners
+ * are never awaited.
  */
 
 import type {
@@ -173,7 +174,7 @@ function computeBackoffDelay(retry: RetryConfig, attemptIndex: number): number {
  * Progress can be observed live with {@link WorkflowExecutor.on} and
  * {@link WorkflowExecutor.off}: `step:start`, `step:complete` and `step:error`
  * events carry the payload types from `@cognipipe/types`. Events are strictly
- * observational — a listener can never fail, delay or alter a run.
+ * observational — a listener can never fail or alter a run.
  *
  * @example
  * ```typescript
@@ -222,12 +223,16 @@ export class WorkflowExecutor {
    * listener does not skip the other listeners of that same emission.
    * Registering the same function twice for one event registers it once.
    *
-   * A listener can never affect the workflow: a synchronous throw or an async
-   * rejection is caught and reported via
+   * A listener can never fail or alter the workflow: a synchronous throw or an
+   * async rejection is caught and reported via
    * `process.emitWarning(message, 'CogniPipeListenerWarning')`, and `run()`
    * never awaits an async listener. Events from concurrently running steps
    * interleave, but each step's own events always arrive in order
    * (`step:start`, then exactly one of `step:complete` / `step:error`).
+   * A synchronous listener runs inline at the emit point, so keep it fast.
+   * Listeners are registered on the executor instance and receive events from
+   * every `run()` of it: events from overlapping runs (for example two scheduled
+   * jobs sharing one executor) interleave and carry no run identifier.
    *
    * @param event - The event name to subscribe to.
    * @param listener - Callback receiving that event's typed payload.
@@ -585,7 +590,7 @@ export class WorkflowExecutor {
         workflowName,
         stepName: step.name,
         uses: step.uses,
-        output,
+        output: stepResult.output,
         durationMs: stepResult.durationMs,
         retryCount: stepResult.retryCount,
         completedAt: stepResult.completedAt,
@@ -651,7 +656,16 @@ export class WorkflowExecutor {
     }
 
     const reportListenerFailure = (reason: unknown): void => {
-      const detail = reason instanceof Error ? reason.message : String(reason);
+      // This runs on the failure path of user code, so it must be unable to throw itself:
+      // String() throws for values such as Object.create(null), and an Error subclass can
+      // have a throwing `message` getter. A throw here would escape #emit and break the step
+      // (or become an unhandled rejection when called from the .catch below).
+      let detail: string;
+      try {
+        detail = String(reason instanceof Error ? reason.message : reason);
+      } catch {
+        detail = 'a value that could not be converted to a string';
+      }
       process.emitWarning(
         `A "${event}" listener failed and was ignored: ${detail}`,
         'CogniPipeListenerWarning',
