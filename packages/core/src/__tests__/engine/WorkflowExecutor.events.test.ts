@@ -475,6 +475,27 @@ describe('WorkflowExecutor events', () => {
       expect(delivered).toEqual(['kept']);
     });
 
+    it('makes an unsubscribe function a no-op after its first call, even if the listener was registered again', async () => {
+      const registry = new NodeRegistry();
+      registry.register('@cognipipe/node-echo', EchoNode);
+      const executor = new WorkflowExecutor(registry);
+      const delivered: string[] = [];
+      const listener = (event: StepStartEvent): void => {
+        delivered.push(event.stepName);
+      };
+
+      const unsubscribe = executor.on('step:start', listener);
+      unsubscribe();
+      executor.on('step:start', listener); // registered again
+      unsubscribe(); // must NOT remove the new registration
+
+      await executor.run(
+        buildWorkflow([{ name: 'step-a', uses: '@cognipipe/node-echo', config: {} }]),
+      );
+
+      expect(delivered).toEqual(['step-a']);
+    });
+
     it('stops delivery through off() and ignores unknown listeners and events', async () => {
       const registry = new NodeRegistry();
       registry.register('@cognipipe/node-echo', EchoNode);
@@ -916,6 +937,82 @@ describe('WorkflowExecutor events', () => {
       const errorEvent = at(payloadsOf(events, 'step:error'), 0);
       expect(errorEvent.continued).toBe(true);
       // The event and stepErrors carry the same normalised Error.
+      expect(errorEvent.error).toBe(at(result.stepErrors, 0).error);
+      expect(errorEvent.error.message).toContain('could not be converted to a string');
+    });
+
+    it('still emits step:error and rejects with STEP_EXECUTION_FAILED when a node throws a revoked proxy', async () => {
+      const registry = new NodeRegistry();
+
+      class ThrowsRevokedProxyNode implements IBaseNode {
+        async execute(_config: NodeConfig, _ctx: IExecutionContext): Promise<NodeOutput> {
+          // `instanceof` on a revoked proxy throws a TypeError.
+          const { proxy, revoke } = Proxy.revocable({}, {});
+          revoke();
+          throw proxy;
+        }
+      }
+
+      registry.register('@cognipipe/node-throw-revoked', ThrowsRevokedProxyNode);
+      const executor = new WorkflowExecutor(registry);
+      const events = recordEvents(executor);
+
+      let thrown: unknown;
+      await executor
+        .run(buildWorkflow([{ name: 'step-a', uses: '@cognipipe/node-throw-revoked', config: {} }]))
+        .catch((err: unknown) => {
+          thrown = err;
+        });
+
+      expect(labels(events)).toEqual(['step:start:step-a', 'step:error:step-a']);
+      const errorEvent = at(payloadsOf(events, 'step:error'), 0);
+      expect(errorEvent.error).toBeInstanceOf(Error);
+      expect(errorEvent.error.message).toContain('could not be converted to a string');
+      expect(errorEvent.continued).toBe(false);
+
+      if (!isCogniPipeError(thrown)) {
+        throw new Error('Expected run() to reject with a CogniPipeError');
+      }
+      expect(thrown.code).toBe(COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED);
+      expect(thrown.cause).toBeUndefined();
+    });
+
+    it('continues the workflow when a continueOnError step throws a revoked proxy', async () => {
+      const registry = new NodeRegistry();
+
+      class ThrowsRevokedProxyNode implements IBaseNode {
+        async execute(_config: NodeConfig, _ctx: IExecutionContext): Promise<NodeOutput> {
+          const { proxy, revoke } = Proxy.revocable({}, {});
+          revoke();
+          throw proxy;
+        }
+      }
+
+      registry.register('@cognipipe/node-throw-revoked', ThrowsRevokedProxyNode);
+      registry.register('@cognipipe/node-echo', EchoNode);
+      const executor = new WorkflowExecutor(registry);
+      const events = recordEvents(executor);
+
+      const result = await executor.run(
+        buildWorkflow([
+          {
+            name: 'soft',
+            uses: '@cognipipe/node-throw-revoked',
+            config: {},
+            continueOnError: true,
+          },
+          { name: 'after', uses: '@cognipipe/node-echo', config: {}, dependsOn: ['soft'] },
+        ]),
+      );
+
+      expect(labels(events)).toEqual([
+        'step:start:soft',
+        'step:error:soft',
+        'step:start:after',
+        'step:complete:after',
+      ]);
+      const errorEvent = at(payloadsOf(events, 'step:error'), 0);
+      expect(errorEvent.continued).toBe(true);
       expect(errorEvent.error).toBe(at(result.stepErrors, 0).error);
       expect(errorEvent.error.message).toContain('could not be converted to a string');
     });

@@ -170,14 +170,26 @@ function computeBackoffDelay(retry: RetryConfig, attemptIndex: number): number {
 const UNCONVERTIBLE_MESSAGE = 'a value that could not be converted to a string';
 
 /**
+ * Type guard for Error values that never throws: `instanceof` itself throws for a revoked
+ * Proxy, and a thrown value can be anything a node (or listener) chooses to throw.
+ */
+function isError(value: unknown): value is Error {
+  try {
+    return value instanceof Error;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Describes any thrown value as text without ever throwing: String() throws for values such
- * as Object.create(null), and an Error subclass can have a throwing `message` getter. It is
- * used on failure paths where a second throw would skip a terminal event or replace the
+ * as Object.create(null), and an Error subclass can have a throwing or non-string `message`.
+ * Used on failure paths where a second throw would skip a terminal event or replace the
  * real failure.
  */
 function describeThrown(value: unknown): string {
   try {
-    return value instanceof Error ? value.message : String(value);
+    return String(isError(value) ? value.message : value);
   } catch {
     return UNCONVERTIBLE_MESSAGE;
   }
@@ -185,7 +197,7 @@ function describeThrown(value: unknown): string {
 
 /** Returns `value` itself when it is an Error, otherwise a new Error describing it. Never throws. */
 function toError(value: unknown): Error {
-  return value instanceof Error ? value : new Error(describeThrown(value));
+  return isError(value) ? value : new Error(describeThrown(value));
 }
 
 /**
@@ -259,7 +271,8 @@ export class WorkflowExecutor {
    * @param event - The event name to subscribe to.
    * @param listener - Callback receiving that event's typed payload.
    * @returns An unsubscribe function, equivalent to `off(event, listener)`.
-   *   Calling it more than once is a no-op.
+   *   Calling it more than once is a no-op. If the same function is registered
+   *   twice, both calls refer to one registration; the first unsubscribe removes it.
    *
    * @example
    * ```typescript
@@ -287,7 +300,12 @@ export class WorkflowExecutor {
     }
     // Storage-only widening: the map key pins which payload this set receives.
     listeners.add(listener as ExecutionEventListener<ExecutionEventName>);
+    let subscribed = true;
     return () => {
+      if (!subscribed) {
+        return;
+      }
+      subscribed = false;
       this.off(event, listener);
     };
   }
@@ -649,7 +667,7 @@ export class WorkflowExecutor {
       throw new CogniPipeError(`Step "${step.name}" failed: ${describeThrown(err)}`, {
         code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
         context: { stepName: step.name, uses: step.uses },
-        cause: err instanceof Error ? err : undefined,
+        cause: isError(err) ? err : undefined,
       });
     }
   }
