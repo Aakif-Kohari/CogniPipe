@@ -20,7 +20,12 @@
 
 import { BaseNode, CogniNode, defineConfig } from '@cognipipe/sdk';
 import type { IExecutionContext, NodeConfig } from '@cognipipe/types';
-import { CogniPipeError, COGNIPIPE_ERROR_CODES, resolveDotPath } from '@cognipipe/core';
+import {
+  CogniPipeError,
+  COGNIPIPE_ERROR_CODES,
+  isCogniPipeError,
+  resolveDotPath,
+} from '@cognipipe/core';
 import { z } from 'zod';
 import { parseCsv } from './csv.js';
 
@@ -408,6 +413,41 @@ function runTemplate(cfg: TemplateOperation, ctx: IExecutionContext): TransformO
 }
 
 /**
+ * Summarises a rejected config value for error context: a string is cut like every other
+ * echo, anything else is reduced to its kind ("object", "an array", "number", "null",
+ * "undefined"). Never serialises the value.
+ */
+function summarizeReceived(value: unknown): string {
+  return typeof value === 'string' ? excerpt(value) : describeValue(value);
+}
+
+/**
+ * Validates `config` with the shared parser but re-throws schema failures with a bounded
+ * `context`. defineConfig() puts the complete rejected value in `context.received`, and
+ * `cognipipe run` prints `err.context` in full; config values can come from upstream
+ * `{{ }}` output, so the raw value must not travel. Code and message are unchanged, and
+ * the original error is deliberately NOT attached as `cause` (it would keep the full
+ * value reachable).
+ */
+function parseConfig(config: NodeConfig) {
+  try {
+    return TransformConfigParser.parse(config);
+  } catch (err) {
+    if (!isCogniPipeError(err) || err.code !== COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID) {
+      throw err;
+    }
+    const path = err.context?.['path'];
+    throw new CogniPipeError(err.message, {
+      code: err.code,
+      context: {
+        path: typeof path === 'string' ? excerpt(path) : '',
+        received: summarizeReceived(err.context?.['received']),
+      },
+    });
+  }
+}
+
+/**
  * Data-transformation node: JSON pick, CSV parse, text template.
  *
  * Config is a discriminated union on `operation` — see README.md for every
@@ -440,13 +480,15 @@ export class TransformNode extends BaseNode {
    *   discriminated union via `defineConfig()` before any work happens.
    * @param ctx - Current execution context; read by `inputPath` / `dataPath`.
    * @returns `{ operation, result }`, plus `rowCount` for `parseCsv`.
-   * @throws {CogniPipeError} `NODE_CONFIG_INVALID` for schema failures;
+   * @throws {CogniPipeError} `NODE_CONFIG_INVALID` for schema failures (its
+   *   `context` is `{ path, received }`, where `received` is a string cut to 80
+   *   characters or, for any other value, just its type);
    *   `STEP_EXECUTION_FAILED` for bad data (invalid JSON, ragged CSV, unresolved
    *   paths or placeholders). Data errors echo at most the first 80 characters
    *   of any untrusted input, in both the message and the error `context`.
    */
   async execute(config: NodeConfig, ctx: IExecutionContext): Promise<TransformOutput> {
-    const cfg = TransformConfigParser.parse(config);
+    const cfg = parseConfig(config);
     switch (cfg.operation) {
       case 'pick':
         return runPick(cfg, ctx);

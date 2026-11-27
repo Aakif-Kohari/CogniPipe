@@ -11,8 +11,19 @@
 import { performance } from 'node:perf_hooks';
 import { TransformNode } from '../src/index';
 import * as publicApi from '../src/index';
-import { COGNIPIPE_ERROR_CODES, isCogniPipeError } from '@cognipipe/core';
+import { CogniPipeError, COGNIPIPE_ERROR_CODES, isCogniPipeError } from '@cognipipe/core';
+import * as sdk from '@cognipipe/sdk';
 import type { IExecutionContext } from '@cognipipe/types';
+
+/**
+ * Wrap defineConfig so tests can reach the parser instance TransformNode creates
+ * at module load. The wrapper delegates to the real implementation, so every
+ * other test runs against the real schema unchanged.
+ */
+jest.mock('@cognipipe/sdk', () => {
+  const actual = jest.requireActual('@cognipipe/sdk');
+  return { __esModule: true, ...actual, defineConfig: jest.fn(actual.defineConfig) };
+});
 
 /** Minimal in-memory IExecutionContext: a key/value store, no interpolation. */
 class TestContext implements IExecutionContext {
@@ -1012,6 +1023,114 @@ describe('TransformNode', () => {
         if (isCogniPipeError(err)) {
           expect(err.code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
         }
+      }
+    });
+
+    it('bounds context.received for a long invalid delimiter, keeping code and message', async () => {
+      expect.assertions(5);
+      const delimiter = 'x'.repeat(5000);
+      try {
+        await node.execute({ operation: 'parseCsv', input: 'a,b', delimiter }, emptyCtx);
+      } catch (err) {
+        expect(isCogniPipeError(err)).toBe(true);
+        if (isCogniPipeError(err)) {
+          expect(err.code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
+          expect(err.message).toContain('delimiter');
+          expect(err.context).toEqual({ path: 'delimiter', received: `${'x'.repeat(80)}…` });
+          expect(err.cause).toBeUndefined();
+        }
+      }
+    });
+
+    it('reduces a non-string rejected value to its type, never serialising it', async () => {
+      expect.assertions(4);
+      try {
+        await node.execute({ operation: 'parseCsv', input: { big: 'y'.repeat(5000) } }, emptyCtx);
+      } catch (err) {
+        expect(isCogniPipeError(err)).toBe(true);
+        if (isCogniPipeError(err)) {
+          expect(err.code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
+          expect(err.context).toEqual({ path: 'input', received: 'object' });
+          expect(JSON.stringify(err.context)).not.toContain('yy');
+        }
+      }
+    });
+
+    it('bounds the second field of an "exactly one of" violation', async () => {
+      expect.assertions(4);
+      try {
+        await node.execute(
+          { operation: 'pick', input: '{}', inputPath: 'p'.repeat(5000), fields: ['a'] },
+          emptyCtx,
+        );
+      } catch (err) {
+        expect(isCogniPipeError(err)).toBe(true);
+        if (isCogniPipeError(err)) {
+          expect(err.code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
+          expect(err.message).toContain('exactly one of');
+          expect(err.context).toEqual({ path: 'inputPath', received: `${'p'.repeat(80)}…` });
+        }
+      }
+    });
+
+    it.each([
+      ['an unknown operation', { operation: 'merge', input: '{}' }, 'merge'],
+      ['a missing operation', { input: '{}' }, 'undefined'],
+    ])(
+      'keeps short or absent values readable in context.received for %s',
+      async (_label, config, received) => {
+        expect.assertions(3);
+        try {
+          await node.execute(config, emptyCtx);
+        } catch (err) {
+          expect(isCogniPipeError(err)).toBe(true);
+          if (isCogniPipeError(err)) {
+            expect(err.code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
+            expect(err.context).toEqual({ path: 'operation', received });
+          }
+        }
+      },
+    );
+
+    /** The parser TransformNode built at module load via the wrapped defineConfig. */
+    const parser = (sdk.defineConfig as unknown as jest.Mock).mock.results[0]?.value as {
+      parse: (config: unknown) => unknown;
+    };
+
+    it('passes a non-config error from the parser through unchanged', async () => {
+      expect.assertions(2);
+      const boom = new Error('parser blew up');
+      const spy = jest.spyOn(parser, 'parse').mockImplementationOnce(() => {
+        throw boom;
+      });
+      try {
+        await node.execute({ operation: 'pick', input: '{}', fields: ['a'] }, emptyCtx);
+      } catch (err) {
+        expect(err).toBe(boom);
+        expect(isCogniPipeError(err)).toBe(false);
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it('still bounds a NODE_CONFIG_INVALID error that carries no context', async () => {
+      expect.assertions(4);
+      const spy = jest.spyOn(parser, 'parse').mockImplementationOnce(() => {
+        throw new CogniPipeError('schema failed without an issue', {
+          code: COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID,
+        });
+      });
+      try {
+        await node.execute({ operation: 'pick', input: '{}', fields: ['a'] }, emptyCtx);
+      } catch (err) {
+        expect(isCogniPipeError(err)).toBe(true);
+        if (isCogniPipeError(err)) {
+          expect(err.code).toBe(COGNIPIPE_ERROR_CODES.NODE_CONFIG_INVALID);
+          expect(err.message).toBe('schema failed without an issue');
+          expect(err.context).toEqual({ path: '', received: 'undefined' });
+        }
+      } finally {
+        spy.mockRestore();
       }
     });
   });

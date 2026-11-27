@@ -162,7 +162,7 @@ an unmatched `{{` alone. An empty `${}` is an error.
 
 ## Errors
 
-- Invalid config → `CogniPipeError(NODE_CONFIG_INVALID)`: an unknown or missing `operation`, an empty `fields` array, both or neither of `input` / `inputPath` (or `data` / `dataPath`), a `delimiter` that is not exactly one character or is a quote or line break. The message names the offending field.
+- Invalid config → `CogniPipeError(NODE_CONFIG_INVALID)`: an unknown or missing `operation`, an empty `fields` array, both or neither of `input` / `inputPath` (or `data` / `dataPath`), a `delimiter` that is not exactly one character or is a quote or line break. The message names the offending field. The error's `context` is `{ path, received }`; `received` is a string cut to 80 characters, or just the type (`object`, `an array`, `number`, `null`, `undefined`) for anything else.
 - Bad data → `CogniPipeError(STEP_EXECUTION_FAILED)`: invalid JSON, a non-object `pick` input, a ragged or malformed CSV, a duplicate header, an `inputPath` / `dataPath` that resolves to nothing (or `null`), or a template placeholder that resolves to nothing. The message names the path, row, or placeholder involved.
 - Error messages never dump a whole payload: any untrusted input echoed back is cut to its first 80 characters (the `context` attached to the error is bounded the same way; `cognipipe run` prints it).
 
