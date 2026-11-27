@@ -115,7 +115,7 @@ type PickOperation = z.infer<typeof PickOperationSchema>;
 type ParseCsvOperation = z.infer<typeof ParseCsvOperationSchema>;
 type TemplateOperation = z.infer<typeof TemplateOperationSchema>;
 
-/** Maximum characters of untrusted input echoed into an error message. */
+/** Maximum characters of untrusted input echoed into an error message or its context. */
 const MAX_INPUT_EXCERPT_CHARS = 80;
 
 /** Character codes for the template scanner. */
@@ -123,7 +123,10 @@ const BACKSLASH = 92; // '\'
 const OPEN_BRACE = 123; // '{'
 const CLOSE_BRACE = 125; // '}'
 
-/** Bounds untrusted input echoed into error messages — never dumps whole payloads. */
+/**
+ * Bounds untrusted input echoed into error messages and `context` — never
+ * dumps whole payloads (`cognipipe run` prints `err.context` in full).
+ */
 function excerpt(value: string): string {
   return value.length > MAX_INPUT_EXCERPT_CHARS
     ? `${value.slice(0, MAX_INPUT_EXCERPT_CHARS)}…`
@@ -152,20 +155,29 @@ function readFromContext(
   const separatorIndex = path.search(/[.[\]]/);
   const rootKey = separatorIndex === -1 ? path : path.slice(0, separatorIndex);
   const remainder = separatorIndex === -1 ? '' : path.slice(separatorIndex);
+  // Bound only the echoed copies — lookup and resolution use the real values.
+  const shownPath = excerpt(path);
+  const shownRoot = excerpt(rootKey);
 
   const stored = rootKey === '' ? undefined : ctx.get(rootKey);
   if (stored === undefined || stored === null) {
     throw new CogniPipeError(
-      `Transform could not resolve ${configKey} "${path}": context key "${rootKey}" is missing or null. Ensure the referenced step ran before this one (add it to dependsOn).`,
-      { code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED, context: { path, rootKey } },
+      `Transform could not resolve ${configKey} "${shownPath}": context key "${shownRoot}" is missing or null. Ensure the referenced step ran before this one (add it to dependsOn).`,
+      {
+        code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+        context: { path: shownPath, rootKey: shownRoot },
+      },
     );
   }
 
   const value = resolveDotPath(stored, remainder);
   if (value === undefined || value === null) {
     throw new CogniPipeError(
-      `Transform could not resolve ${configKey} "${path}": the path resolved to undefined or null. Check the field names and array indices.`,
-      { code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED, context: { path, rootKey } },
+      `Transform could not resolve ${configKey} "${shownPath}": the path resolved to undefined or null. Check the field names and array indices.`,
+      {
+        code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
+        context: { path: shownPath, rootKey: shownRoot },
+      },
     );
   }
   return value;
@@ -219,7 +231,10 @@ function runPick(cfg: PickOperation, ctx: IExecutionContext): TransformOutput {
   let value: unknown =
     cfg.inputPath !== undefined ? readFromContext(ctx, cfg.inputPath, 'inputPath') : cfg.input;
   if (typeof value === 'string') {
-    const source = cfg.inputPath !== undefined ? `inputPath "${cfg.inputPath}"` : '"input"';
+    // The path is config text (possibly interpolated from upstream data), so
+    // its echoed label is bounded like every other untrusted echo.
+    const source =
+      cfg.inputPath !== undefined ? `inputPath "${excerpt(cfg.inputPath)}"` : '"input"';
     value = parseJsonInput(value, source);
   }
   if (Array.isArray(value)) {
@@ -246,9 +261,10 @@ function runParseCsv(cfg: ParseCsvOperation): TransformOutput {
   const seen = new Set<string>();
   for (const name of headerRow) {
     if (seen.has(name)) {
+      const shown = excerpt(name);
       throw new CogniPipeError(
-        `CSV header has a duplicate column name ${JSON.stringify(name)}. Rename or remove the duplicate column, or set header: false.`,
-        { code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED, context: { column: name } },
+        `CSV header has a duplicate column name ${JSON.stringify(shown)}. Rename or remove the duplicate column, or set header: false.`,
+        { code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED, context: { column: shown } },
       );
     }
     seen.add(name);
@@ -284,11 +300,14 @@ function resolvePlaceholder(body: string, data: object): string {
     );
   }
 
+  // The body is template text (possibly interpolated from upstream data), so
+  // only its bounded copy is echoed — resolution uses the real body.
+  const shown = excerpt(body);
   const value = resolveDotPath(data, body);
   if (value === undefined || value === null) {
     throw new CogniPipeError(
-      `Template placeholder "\${${body}}" resolved to ${value === null ? 'null' : 'undefined'}. Provide a value at this path in "data" (or in the context at "dataPath").`,
-      { code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED, context: { placeholder: body } },
+      `Template placeholder "\${${shown}}" resolved to ${value === null ? 'null' : 'undefined'}. Provide a value at this path in "data" (or in the context at "dataPath").`,
+      { code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED, context: { placeholder: shown } },
     );
   }
 
@@ -304,10 +323,10 @@ function resolvePlaceholder(body: string, data: object): string {
     }
     if (json === undefined) {
       throw new CogniPipeError(
-        `Template placeholder "\${${body}}" resolved to a value that cannot be serialized to JSON (circular reference, BigInt, or a toJSON() that threw).`,
+        `Template placeholder "\${${shown}}" resolved to a value that cannot be serialized to JSON (circular reference, BigInt, or a toJSON() that threw).`,
         {
           code: COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED,
-          context: { placeholder: body },
+          context: { placeholder: shown },
           cause,
         },
       );
@@ -423,8 +442,8 @@ export class TransformNode extends BaseNode {
    * @returns `{ operation, result }`, plus `rowCount` for `parseCsv`.
    * @throws {CogniPipeError} `NODE_CONFIG_INVALID` for schema failures;
    *   `STEP_EXECUTION_FAILED` for bad data (invalid JSON, ragged CSV, unresolved
-   *   paths or placeholders). Data-error messages echo at most the first 80
-   *   characters of any untrusted input.
+   *   paths or placeholders). Data errors echo at most the first 80 characters
+   *   of any untrusted input, in both the message and the error `context`.
    */
   async execute(config: NodeConfig, ctx: IExecutionContext): Promise<TransformOutput> {
     const cfg = TransformConfigParser.parse(config);

@@ -8,8 +8,8 @@ reads an earlier step's output from the shared context.
 
 The workflow fetches a random cat fact from the public `catfact.ninja` API in an
 HTTP step, then passes the response body into a transform step that picks just
-the `fact` and `length` fields. It is the smallest example that exercises every
-building block a real CogniPipe pipeline relies on — a `name`/`version` header,
+the `fact` and `length` fields. It is the smallest example that exercises the core
+building blocks a real CogniPipe pipeline relies on — a `name`/`version` header,
 two steps connected by `dependsOn`, and an `inputPath` of the form
 `steps.<step-name>.output.<path>` that reads one step's output from the next.
 The transform step uses `inputPath` rather than a `{{ }}` expression because

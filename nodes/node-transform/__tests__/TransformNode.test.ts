@@ -393,6 +393,23 @@ describe('TransformNode', () => {
         }
       }
     });
+
+    it('echoes at most 80 characters of a long inputPath, in the message and the context', async () => {
+      expect.assertions(5);
+      const path = 'a'.repeat(5000);
+      const shown = `${'a'.repeat(80)}…`;
+      try {
+        await node.execute({ operation: 'pick', inputPath: path, fields: ['a'] }, emptyCtx);
+      } catch (err) {
+        expect(isCogniPipeError(err)).toBe(true);
+        if (isCogniPipeError(err)) {
+          expect(err.code).toBe(COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED);
+          expect(err.message).toContain(shown);
+          expect(err.message).not.toContain('a'.repeat(81));
+          expect(err.context).toEqual({ path: shown, rootKey: shown });
+        }
+      }
+    });
   });
 
   describe('parseCsv', () => {
@@ -466,6 +483,20 @@ describe('TransformNode', () => {
       expect(out.result).toEqual([{ a: '1', b: '2' }]);
     });
 
+    it('turns a blank line into a record of empty strings and drops only ONE trailing newline', async () => {
+      const out = await node.execute(
+        { operation: 'parseCsv', input: 'a,b\n1,2\n\n3,4\n\n' },
+        emptyCtx,
+      );
+      expect(out).toMatchObject({ rowCount: 4 });
+      expect(out.result).toEqual([
+        { a: '1', b: '2' },
+        { a: '', b: '' },
+        { a: '3', b: '4' },
+        { a: '', b: '' },
+      ]);
+    });
+
     it('pads a short row with empty strings', async () => {
       const out = await node.execute({ operation: 'parseCsv', input: 'a,b,c\n1,2\n' }, emptyCtx);
       expect(out.result).toEqual([{ a: '1', b: '2', c: '' }]);
@@ -531,6 +562,22 @@ describe('TransformNode', () => {
         if (isCogniPipeError(err)) {
           expect(err.code).toBe(COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED);
           expect(err.message).toContain('duplicate column name "name"');
+        }
+      }
+    });
+
+    it('echoes at most 80 characters of a long duplicate header name, in the message and the context', async () => {
+      expect.assertions(5);
+      const name = 'x'.repeat(5000);
+      try {
+        await node.execute({ operation: 'parseCsv', input: `${name},${name}\n1,2` }, emptyCtx);
+      } catch (err) {
+        expect(isCogniPipeError(err)).toBe(true);
+        if (isCogniPipeError(err)) {
+          expect(err.code).toBe(COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED);
+          expect(err.message).toContain(`${'x'.repeat(80)}…`);
+          expect(err.message).not.toContain('x'.repeat(81));
+          expect(err.context).toEqual({ column: `${'x'.repeat(80)}…` });
         }
       }
     });
@@ -803,6 +850,29 @@ describe('TransformNode', () => {
           expect(err.cause).toBeUndefined();
         }
       }
+    });
+
+    it('echoes at most 80 characters of a hostile placeholder body, in the message and the context, without slowing down', async () => {
+      expect.assertions(6);
+      const body = '[1'.repeat(50_000);
+      const config = { operation: 'template', template: '${' + body + '}', data: {} };
+      const shown = `${body.slice(0, 80)}…`;
+      try {
+        await node.execute(config, emptyCtx);
+      } catch (err) {
+        expect(isCogniPipeError(err)).toBe(true);
+        if (isCogniPipeError(err)) {
+          expect(err.code).toBe(COGNIPIPE_ERROR_CODES.STEP_EXECUTION_FAILED);
+          expect(err.message).toContain(shown);
+          expect(err.message).not.toContain(body.slice(0, 81));
+          expect(err.context).toEqual({ placeholder: shown });
+        }
+      }
+      // Also exercises core's resolveDotPath regex on a hostile body.
+      const fastest = await fastestMs(5, () =>
+        node.execute(config, emptyCtx).catch(() => undefined),
+      );
+      expect(fastest).toBeLessThan(200);
     });
   });
 
